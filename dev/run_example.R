@@ -68,10 +68,13 @@ state <- run_pipeline(
   median_OS_C = log(2) / 0.10,
   HR_PFS = 0.8,
   HR_OS = 0.8,
-  alpha_spending_PFS = "OF",
+  alpha_spending_PFS = "HSD",
+  alpha_spending_gamma_PFS = -4,
   alpha_spending_OS = "Pocock",
   simulation = TRUE,
-  efficacy_start = c(PFS = 2, OS = 1),
+  efficacy_looks = list(PFS = c(2, 3), OS = c(1, 3)),
+  futility_looks = list(PFS = 1, OS = c(1, 2)),
+  futility_HR = list(PFS = 1.2, OS = c(1.30, 1.15)),
   n_sim = 5000,
   seed = 777
 )

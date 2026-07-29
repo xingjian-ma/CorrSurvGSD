@@ -18,12 +18,14 @@ library(checkmate)
 #   median_PFS_C, median_OS_C  — control arm median times
 #   median_PFS_T, median_OS_T  — treatment arm median times
 #   HR_PFS, HR_OS              — hazard ratio under H1 (PFS, OS)
-#   alpha_spending_PFS     — spending function, one of "WT" "OF" "Pocock"
-#   alpha_spending_OS      — spending function, one of "WT" "OF" "Pocock"
+#   alpha_spending_PFS     — spending function, one of "OF" "Pocock" "HSD"
+#   alpha_spending_OS      — spending function, one of "OF" "Pocock" "HSD"
+#   alpha_spending_gamma_PFS, alpha_spending_gamma_OS
+#                         — HSD gamma parameters when applicable
 #   alpha                  — overall alpha level (default 0.025)
-#   futility_analysis      — named endpoint-level futility indicators
-#   futility_HR            — named endpoint-level futility HR thresholds
-#   efficacy_start         — named endpoint-level first efficacy looks
+#   efficacy_looks         — named endpoint-level efficacy look schedules
+#   futility_looks         — named endpoint-level futility look schedules
+#   futility_HR            — scalar, endpoint vector, or endpoint look vectors
 #   hierarchy_order        — named primary-to-secondary endpoint order
 #   tol                    — shared numerical tolerance setting
 #   seed                   — shared random seed for numerical routines
@@ -39,10 +41,12 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
                                  HR_PFS = NULL, HR_OS = NULL,
                                  alpha_spending_PFS,
                                  alpha_spending_OS,
+                                 alpha_spending_gamma_PFS = NA_real_,
+                                 alpha_spending_gamma_OS = NA_real_,
                                  alpha = 0.025,
-                                 futility_analysis = c(PFS = TRUE, OS = FALSE),
-                                 futility_HR = c(PFS = 1.2, OS = 1.2),
-                                 efficacy_start = c(PFS = 1, OS = 1),
+                                 efficacy_looks,
+                                 futility_looks,
+                                 futility_HR = 1.2,
                                  hierarchy_order = c(primary = "PFS", secondary = "OS"),
                                  tol = 1e-8,
                                  seed = 777,
@@ -168,22 +172,93 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
 
   # --- endpoint-level futility and efficacy configuration ---
   endpoints <- c("PFS", "OS")
-  if (!is.logical(futility_analysis) || length(futility_analysis) != 2 ||
-      !identical(names(futility_analysis), endpoints) || anyNA(futility_analysis)) {
-    stop("futility_analysis must be a named logical vector with names PFS and OS.")
+  if (missing(efficacy_looks)) {
+    efficacy_looks <- list(PFS = seq_len(L), OS = seq_len(L))
   }
-  if (!is.numeric(futility_HR) || length(futility_HR) != 2 ||
-      !identical(names(futility_HR), endpoints)) {
-    stop("futility_HR must be a named numeric vector with names PFS and OS.")
+  if (missing(futility_looks)) {
+    futility_looks <- list(PFS = integer(0), OS = integer(0))
   }
-  if (!is.numeric(efficacy_start) || length(efficacy_start) != 2 ||
-      !identical(names(efficacy_start), endpoints) || anyNA(efficacy_start) ||
-      any(efficacy_start != as.integer(efficacy_start)) ||
-      any(efficacy_start < 1 | efficacy_start > L)) {
-    stop("efficacy_start must be a named integer vector with values in 1:L.")
+  if (!is.list(efficacy_looks) || length(efficacy_looks) != 2 ||
+      !identical(names(efficacy_looks), endpoints)) {
+    stop("efficacy_looks must be a named list with elements PFS and OS.")
   }
-  efficacy_start <- as.integer(efficacy_start)
-  names(efficacy_start) <- endpoints
+  if (!is.list(futility_looks) || length(futility_looks) != 2 ||
+      !identical(names(futility_looks), endpoints)) {
+    stop("futility_looks must be a named list with elements PFS and OS.")
+  }
+
+  for (endpoint in endpoints) {
+    endpoint_efficacy_looks <- efficacy_looks[[endpoint]]
+    if (!is.numeric(endpoint_efficacy_looks) ||
+        anyNA(endpoint_efficacy_looks) ||
+        any(!is.finite(endpoint_efficacy_looks)) ||
+        any(endpoint_efficacy_looks != as.integer(endpoint_efficacy_looks)) ||
+        any(endpoint_efficacy_looks < 1 | endpoint_efficacy_looks > L) ||
+        is.unsorted(endpoint_efficacy_looks, strictly = TRUE) ||
+        length(endpoint_efficacy_looks) == 0 ||
+        tail(endpoint_efficacy_looks, 1) != L) {
+      stop(
+        "efficacy_looks must contain strictly increasing looks and include L."
+      )
+    }
+    efficacy_looks[[endpoint]] <- as.integer(endpoint_efficacy_looks)
+
+    endpoint_futility_looks <- futility_looks[[endpoint]]
+    if (!is.numeric(endpoint_futility_looks) ||
+        anyNA(endpoint_futility_looks) ||
+        any(!is.finite(endpoint_futility_looks)) ||
+        any(endpoint_futility_looks != as.integer(endpoint_futility_looks)) ||
+        any(endpoint_futility_looks < 1 |
+            endpoint_futility_looks > L - 1) ||
+        is.unsorted(endpoint_futility_looks, strictly = TRUE)) {
+      stop(
+        "futility_looks must contain strictly increasing looks in 1:(L - 1)."
+      )
+    }
+    futility_looks[[endpoint]] <- as.integer(endpoint_futility_looks)
+  }
+
+  # --- futility_HR: validate length before validating each form ---
+  if (is.numeric(futility_HR) && length(futility_HR) == 1) {
+    if (is.na(futility_HR) || !is.finite(futility_HR) ||
+        futility_HR <= 1) {
+      stop("futility_HR must be finite and greater than 1.")
+    }
+    futility_HR <- lapply(futility_looks, function(looks) {
+      rep(futility_HR, length(looks))
+    })
+  } else if (is.numeric(futility_HR) && length(futility_HR) == 2) {
+    if (!identical(names(futility_HR), endpoints) || anyNA(futility_HR) ||
+        any(!is.finite(futility_HR)) || any(futility_HR <= 1)) {
+      stop(
+        "Length-two futility_HR must be named PFS and OS with values above 1."
+      )
+    }
+    endpoint_hr <- futility_HR
+    futility_HR <- lapply(endpoints, function(endpoint) {
+      rep(endpoint_hr[[endpoint]], length(futility_looks[[endpoint]]))
+    })
+    names(futility_HR) <- endpoints
+  } else if (is.list(futility_HR) && length(futility_HR) == 2) {
+    if (!identical(names(futility_HR), endpoints)) {
+      stop("List futility_HR must be named PFS and OS.")
+    }
+    for (endpoint in endpoints) {
+      endpoint_hr <- futility_HR[[endpoint]]
+      if (!is.numeric(endpoint_hr) ||
+          length(endpoint_hr) != length(futility_looks[[endpoint]]) ||
+          anyNA(endpoint_hr) || any(!is.finite(endpoint_hr)) ||
+          any(endpoint_hr <= 1)) {
+        stop(
+          "Each futility_HR list element must match its futility_looks length."
+        )
+      }
+    }
+  } else {
+    stop(
+      "futility_HR must be a scalar, a named endpoint vector, or a named list."
+    )
+  }
 
   if (!is.character(hierarchy_order) || length(hierarchy_order) != 2 ||
       !identical(names(hierarchy_order), c("primary", "secondary")) ||
@@ -191,30 +266,37 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     stop("hierarchy_order must name primary and secondary, with values PFS and OS.")
   }
 
+  # --- alpha-spending configurations for efficacy boundaries ---
+  assert_choice(alpha_spending_PFS, c("OF", "Pocock", "HSD"),
+                .var.name = "alpha_spending_PFS")
+  assert_choice(alpha_spending_OS, c("OF", "Pocock", "HSD"),
+                .var.name = "alpha_spending_OS")
+  alpha_spending <- c(PFS = alpha_spending_PFS, OS = alpha_spending_OS)
+  alpha_spending_gamma <- list(
+    PFS = alpha_spending_gamma_PFS,
+    OS = alpha_spending_gamma_OS
+  )
   for (endpoint in endpoints) {
-    if (futility_analysis[[endpoint]]) {
-      if (is.na(futility_HR[[endpoint]]) ||
-          !is.finite(futility_HR[[endpoint]]) ||
-          futility_HR[[endpoint]] <= 1) {
-        stop("futility_HR must be finite and greater than 1 when futility is enabled.")
+    if (identical(alpha_spending[[endpoint]], "HSD")) {
+      endpoint_gamma <- alpha_spending_gamma[[endpoint]]
+      if (!is.numeric(endpoint_gamma) || length(endpoint_gamma) != 1 ||
+          is.na(endpoint_gamma) || !is.finite(endpoint_gamma) ||
+          endpoint_gamma < -40 || endpoint_gamma >= 40) {
+        stop(
+          "alpha_spending_gamma must be finite and in the interval [-40, 40)."
+        )
       }
     } else {
-      futility_HR[[endpoint]] <- NA_real_
-      if (efficacy_start[[endpoint]] != 1) {
-        stop("efficacy_start must be 1 when futility is disabled.")
-      }
+      alpha_spending_gamma[[endpoint]] <- NA_real_
     }
   }
 
-  # --- alpha_spending_PFS: spending function string for PFS ---
-  assert_choice(alpha_spending_PFS, c("WT", "OF", "Pocock"), .var.name = "alpha_spending_PFS")
-
-  # --- alpha_spending_OS: spending function string for OS ---
-  assert_choice(alpha_spending_OS, c("WT", "OF", "Pocock"), .var.name = "alpha_spending_OS")
-
   # --- alpha: overall alpha level ---
-  assert_number(alpha, lower = 0, upper = 1,
+  assert_number(alpha, lower = 0, upper = 1, finite = TRUE,
                 .var.name = "alpha")
+  if (alpha <= 0 || alpha >= 1) {
+    stop("alpha must be strictly between 0 and 1.")
+  }
 
   # --- shared numerical options ---
   assert_number(tol, lower = 0, finite = TRUE,
@@ -254,12 +336,14 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
       r          = r,
       HR_PFS     = HR_PFS,
       HR_OS      = HR_OS,
-      futility_analysis = futility_analysis,
+      efficacy_looks    = efficacy_looks,
+      futility_looks    = futility_looks,
       futility_HR       = futility_HR,
-      efficacy_start    = efficacy_start,
       hierarchy_order   = hierarchy_order,
       alpha_spending_PFS = alpha_spending_PFS,
       alpha_spending_OS  = alpha_spending_OS,
+      alpha_spending_gamma_PFS = alpha_spending_gamma[["PFS"]],
+      alpha_spending_gamma_OS  = alpha_spending_gamma[["OS"]],
       alpha      = alpha
     ),
     options = list(

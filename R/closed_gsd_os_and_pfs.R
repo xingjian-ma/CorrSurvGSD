@@ -7,17 +7,18 @@
 # Dependencies: gsDesign, mvtnorm
 
 # -----------------------------------------------------------------
-# mean_drift_vector — mean Z-score drift for one endpoint
+# mean_drift — mean Z-score drift for one endpoint
 
-mean_drift_vector <- function(HR, r, d_vec) {
+mean_drift <- function(HR, r, d_vec) {
   -log(HR) * sqrt(d_vec * r / (1 + r)^2)
 }
 
 # -----------------------------------------------------------------
 # build_boundary — futility and efficacy boundaries for one endpoint
 
-build_boundary <- function(d_vec, L, alpha, alpha_spending, efficacy_start,
-                           futility_HR, r) {
+build_boundary <- function(d_vec, L, alpha, alpha_spending,
+                           alpha_spending_gamma, efficacy_looks,
+                           futility_looks, futility_HR, r) {
   boundary <- matrix(
     c(-Inf, Inf),
     nrow = L,
@@ -26,26 +27,31 @@ build_boundary <- function(d_vec, L, alpha, alpha_spending, efficacy_start,
     dimnames = list(NULL, c("futility", "efficacy"))
   )
 
-  active_looks <- seq.int(efficacy_start, L)
-  active_d_vec <- d_vec[active_looks]
-  if (length(active_looks) == 1) {
-    boundary[active_looks, "efficacy"] <- stats::qnorm(1 - alpha)
+  active_d_vec <- d_vec[efficacy_looks]
+  if (length(efficacy_looks) == 1) {
+    boundary[efficacy_looks, "efficacy"] <- stats::qnorm(1 - alpha)
   } else {
-    efficacy_design <- gsDesign::gsDesign(
-      k = length(active_looks),
+    gs_design_arguments <- list(
+      k = length(efficacy_looks),
       alpha = alpha,
-      sfu = alpha_spending,
-      timing = active_d_vec / active_d_vec[length(active_d_vec)],
+      timing = active_d_vec / d_vec[L],
       test.type = 1
     )
-    boundary[active_looks, "efficacy"] <- efficacy_design$upper$bound
+    if (identical(alpha_spending, "HSD")) {
+      gs_design_arguments$sfu <- gsDesign::sfHSD
+      gs_design_arguments$sfupar <- alpha_spending_gamma
+    } else {
+      gs_design_arguments$sfu <- alpha_spending
+    }
+    efficacy_design <- do.call(gsDesign::gsDesign, gs_design_arguments)
+    boundary[efficacy_looks, "efficacy"] <- efficacy_design$upper$bound
   }
 
-  if (!is.na(futility_HR)) {
-    boundary[, "futility"] <- mean_drift_vector(
+  if (length(futility_looks) > 0) {
+    boundary[futility_looks, "futility"] <- mean_drift(
       HR = futility_HR,
       r = r,
-      d_vec = d_vec
+      d_vec = d_vec[futility_looks]
     )
   }
 
@@ -202,7 +208,9 @@ closed_gsd_os_and_pfs <- function(state) {
     L = L,
     alpha = design$alpha,
     alpha_spending = design$alpha_spending_PFS,
-    efficacy_start = design$efficacy_start[["PFS"]],
+    alpha_spending_gamma = design$alpha_spending_gamma_PFS,
+    efficacy_looks = design$efficacy_looks[["PFS"]],
+    futility_looks = design$futility_looks[["PFS"]],
     futility_HR = design$futility_HR[["PFS"]],
     r = design$r
   )
@@ -211,7 +219,9 @@ closed_gsd_os_and_pfs <- function(state) {
     L = L,
     alpha = design$alpha,
     alpha_spending = design$alpha_spending_OS,
-    efficacy_start = design$efficacy_start[["OS"]],
+    alpha_spending_gamma = design$alpha_spending_gamma_OS,
+    efficacy_looks = design$efficacy_looks[["OS"]],
+    futility_looks = design$futility_looks[["OS"]],
     futility_HR = design$futility_HR[["OS"]],
     r = design$r
   )
@@ -223,12 +233,12 @@ closed_gsd_os_and_pfs <- function(state) {
   boundary <- state$design$boundary
 
   state$theoretical_results$joint_mean_vector <- c(
-    mean_drift_vector(
+    mean_drift(
       HR = design$HR_PFS,
       r = design$r,
       d_vec = design$d_PFS_vec
     ),
-    mean_drift_vector(
+    mean_drift(
       HR = design$HR_OS,
       r = design$r,
       d_vec = design$d_OS_vec
