@@ -49,7 +49,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
                                  futility_HR = 1.2,
                                  hierarchy_order = c(primary = "PFS", secondary = "OS"),
                                  tol = 1e-8,
-                                 seed = 777,
+                                 seed = 1,
                                  simulation = FALSE,
                                  n_sim = 500) {
   # --- n_T, n_C: sample sizes (integer, strictly positive) ---

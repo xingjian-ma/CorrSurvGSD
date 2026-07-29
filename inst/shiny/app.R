@@ -25,32 +25,183 @@ without_mean_vector <- function(results) {
   results
 }
 
-collect_pipeline_arguments <- function(input) {
-  treatment_arguments <- if (input$effect_mode == "hr") {
-    list(
-      HR_PFS = input$HR_PFS,
-      HR_OS = input$HR_OS
-    )
-  } else {
-    list(
-      median_PFS_T = input$median_PFS_T,
-      median_OS_T = input$median_OS_T
-    )
+parse_single_number <- function(value, name) {
+  value <- trimws(value)
+  number <- suppressWarnings(as.numeric(value))
+
+  if (!nzchar(value) || length(number) != 1 || is.na(number) ||
+      !is.finite(number)) {
+    stop(name, " must be a finite number.")
   }
 
-  hierarchy_secondary <- if (input$hierarchy_primary == "PFS") {
-    "OS"
+  number
+}
+
+optional_number <- function(value, name) {
+  if (is.null(value) || length(value) != 1 || is.na(value)) {
+    return(NULL)
+  }
+  if (!is.numeric(value) || !is.finite(value)) {
+    stop(name, " must be a finite number.")
+  }
+
+  value
+}
+
+look_input_id <- function(type, endpoint, look) {
+  paste(type, endpoint, look, sep = "_")
+}
+
+selected_looks <- function(input, type, endpoint, looks) {
+  looks[vapply(looks, function(look) {
+    isTRUE(input[[look_input_id(type, endpoint, look)]])
+  }, logical(1))]
+}
+
+collect_look_configuration <- function(input, L) {
+  endpoints <- c("PFS", "OS")
+  efficacy_looks <- list()
+  futility_looks <- list()
+  futility_HR <- list()
+
+  for (endpoint in endpoints) {
+    efficacy_looks[[endpoint]] <- as.integer(unique(c(
+      selected_looks(input, "efficacy", endpoint, seq_len(L)),
+      L
+    )))
+    endpoint_futility_looks <- selected_looks(
+      input,
+      "futility",
+      endpoint,
+      seq_len(max(L - 1, 0))
+    )
+    futility_looks[[endpoint]] <- as.integer(endpoint_futility_looks)
+    futility_HR[[endpoint]] <- vapply(endpoint_futility_looks, function(look) {
+      futility_hr <- input[[look_input_id("futility_HR", endpoint, look)]]
+      if (is.null(futility_hr) || is.na(futility_hr)) {
+        stop("Each selected futility look must have a futility HR.")
+      }
+      futility_hr
+    }, numeric(1))
+  }
+
+  list(
+    efficacy_looks = efficacy_looks,
+    futility_looks = futility_looks,
+    futility_HR = futility_HR
+  )
+}
+
+look_checkbox <- function(id, checked = FALSE, disabled = FALSE) {
+  attributes <- list(type = "checkbox", id = id, value = "true")
+  if (checked) {
+    attributes$checked <- "checked"
+  }
+  if (disabled) {
+    attributes$disabled <- "disabled"
+  }
+  do.call(tags$input, attributes)
+}
+
+look_selection_table <- function(L) {
+  endpoints <- c("PFS", "OS")
+  rows <- list()
+
+  for (endpoint in endpoints) {
+    for (look in seq_len(L)) {
+      is_final_look <- look == L
+      futility_cell <- if (is_final_look) {
+        tags$span("-")
+      } else {
+        look_checkbox(look_input_id("futility", endpoint, look))
+      }
+      futility_hr_cell <- if (is_final_look) {
+        tags$span("-")
+      } else {
+        numericInput(
+          inputId = look_input_id("futility_HR", endpoint, look),
+          label = NULL,
+          value = NULL,
+          min = 1,
+          step = 0.01,
+          width = "90px"
+        )
+      }
+      rows[[length(rows) + 1]] <- tags$tr(
+        tags$td(endpoint),
+        tags$td(look),
+        tags$td(look_checkbox(
+          look_input_id("efficacy", endpoint, look),
+          checked = is_final_look,
+          disabled = is_final_look
+        )),
+        tags$td(futility_cell),
+        tags$td(futility_hr_cell)
+      )
+    }
+  }
+
+  tags$table(
+    class = "table table-condensed table-bordered",
+    tags$thead(tags$tr(
+      tags$th("Endpoint"),
+      tags$th("Look"),
+      tags$th("Efficacy"),
+      tags$th("Futility"),
+      tags$th("Futility HR")
+    )),
+    do.call(tags$tbody, rows)
+  )
+}
+
+collect_pipeline_arguments <- function(input) {
+  d_PFS_vec <- parse_numeric_vector(input$d_PFS_vec, "d_PFS_vec")
+  look_configuration <- collect_look_configuration(input, length(d_PFS_vec))
+  treatment_arguments <- switch(input$effect_mode,
+    hr = list(
+      HR_PFS = input$HR_PFS,
+      HR_OS = input$HR_OS
+    ),
+    median = list(
+      median_PFS_T = input$median_PFS_T,
+      median_OS_T = input$median_OS_T
+    ),
+    stop("Select a treatment effect input mode.")
+  )
+
+  hierarchy_arguments <- if (identical(input$hierarchy_primary, "PFS")) {
+    list(hierarchy_order = c(primary = "PFS", secondary = "OS"))
+  } else if (identical(input$hierarchy_primary, "OS")) {
+    list(hierarchy_order = c(primary = "OS", secondary = "PFS"))
   } else {
-    "PFS"
+    list()
+  }
+
+  optional_arguments <- list()
+  alpha <- optional_number(input$alpha, "alpha")
+  tol <- optional_number(input$tol, "tol")
+  seed <- optional_number(input$seed, "seed")
+  n_sim <- optional_number(input$n_sim, "n_sim")
+  if (!is.null(alpha)) {
+    optional_arguments$alpha <- alpha
+  }
+  if (!is.null(tol)) {
+    optional_arguments$tol <- tol
+  }
+  if (!is.null(seed)) {
+    optional_arguments$seed <- seed
+  }
+  if (isTRUE(input$simulation)) {
+    optional_arguments$simulation <- TRUE
+  }
+  if (!is.null(n_sim)) {
+    optional_arguments$n_sim <- n_sim
   }
 
   arguments <- list(
     n_T = input$n_T,
     n_C = input$n_C,
-    d_PFS_vec = parse_numeric_vector(
-      input$d_PFS_vec,
-      "d_PFS_vec"
-    ),
+    d_PFS_vec = d_PFS_vec,
     t_vec = parse_numeric_vector(
       input$t_vec,
       "t_vec",
@@ -64,30 +215,26 @@ collect_pipeline_arguments <- function(input) {
     median_OS_C = input$median_OS_C,
     alpha_spending_PFS = input$alpha_spending_PFS,
     alpha_spending_OS = input$alpha_spending_OS,
-    alpha = input$alpha,
-    futility_analysis = c(
-      PFS = input$futility_PFS,
-      OS = input$futility_OS
-    ),
-    futility_HR = c(
-      PFS = input$futility_HR_PFS,
-      OS = input$futility_HR_OS
-    ),
-    efficacy_start = c(
-      PFS = if (input$futility_PFS) input$efficacy_start_PFS else 1,
-      OS = if (input$futility_OS) input$efficacy_start_OS else 1
-    ),
-    hierarchy_order = c(
-      primary = input$hierarchy_primary,
-      secondary = hierarchy_secondary
-    ),
-    tol = input$tol,
-    seed = input$seed,
-    simulation = input$simulation,
-    n_sim = input$n_sim
+    alpha_spending_gamma_PFS = if (
+      identical(input$alpha_spending_PFS, "HSD")
+    ) {
+      parse_single_number(input$alpha_spending_gamma_PFS, "PFS HSD gamma")
+    } else {
+      NA_real_
+    },
+    alpha_spending_gamma_OS = if (
+      identical(input$alpha_spending_OS, "HSD")
+    ) {
+      parse_single_number(input$alpha_spending_gamma_OS, "OS HSD gamma")
+    } else {
+      NA_real_
+    },
+    efficacy_looks = look_configuration$efficacy_looks,
+    futility_looks = look_configuration$futility_looks,
+    futility_HR = look_configuration$futility_HR
   )
 
-  c(arguments, treatment_arguments)
+  c(arguments, optional_arguments, hierarchy_arguments, treatment_arguments)
 }
 
 ui <- fluidPage(
@@ -98,42 +245,39 @@ ui <- fluidPage(
       numericInput(
         "n_T",
         "Treatment sample size",
-        value = 800,
+        value = NULL,
         min = 1,
         step = 1
       ),
       numericInput(
         "n_C",
         "Control sample size",
-        value = 1200,
+        value = NULL,
         min = 1,
         step = 1
       ),
       textInput(
         "d_PFS_vec",
-        "Target PFS events by look",
-        value = "400, 800, 1200"
+        "Target PFS events by look"
       ),
       textInput(
         "t_vec",
-        "Accrual breakpoints (empty for one segment)",
-        value = "6, 10"
+        "Accrual start times (optional, leave blank for uniform accrual)"
       ),
       textInput(
         "v_vec",
-        "Accrual rates by segment",
-        value = "8.333333, 8.333333, 8.333333"
+        "Accrual rates by segment"
       ),
       numericInput(
         "median_PFS_C",
         "Control median PFS",
-        value = log(2) / 0.25,
+        value = NULL,
         min = 0
       ),
       numericInput(
         "median_OS_C",
         "Control median OS",
-        value = log(2) / 0.10,
+        value = NULL,
         min = 0
       ),
       radioButtons(
@@ -143,7 +287,7 @@ ui <- fluidPage(
           "Hazard ratios" = "hr",
           "Treatment medians" = "median"
         ),
-        selected = "hr",
+        selected = character(0),
         inline = TRUE
       ),
       conditionalPanel(
@@ -151,14 +295,14 @@ ui <- fluidPage(
         numericInput(
           "HR_PFS",
           "PFS hazard ratio",
-          value = 0.8,
+          value = NULL,
           min = 0,
           max = 1
         ),
         numericInput(
           "HR_OS",
           "OS hazard ratio",
-          value = 0.8,
+          value = NULL,
           min = 0,
           max = 1
         )
@@ -168,70 +312,46 @@ ui <- fluidPage(
         numericInput(
           "median_PFS_T",
           "Treatment median PFS",
-          value = log(2) / 0.20,
+          value = NULL,
           min = 0
         ),
         numericInput(
           "median_OS_T",
           "Treatment median OS",
-          value = log(2) / 0.08,
+          value = NULL,
           min = 0
         )
       ),
       selectInput(
         "alpha_spending_PFS",
         "PFS alpha spending",
-        choices = c("WT", "OF", "Pocock"),
-        selected = "OF"
+        choices = c("Select a spending family" = "", "OF", "Pocock", "HSD"),
+        selected = ""
       ),
       selectInput(
         "alpha_spending_OS",
         "OS alpha spending",
-        choices = c("WT", "OF", "Pocock"),
-        selected = "Pocock"
-      ),
-      checkboxInput(
-        "futility_PFS",
-        "Enable PFS futility",
-        value = TRUE
-      ),
-      numericInput(
-        "futility_HR_PFS",
-        "PFS futility HR",
-        value = 1.2,
-        min = 1
-      ),
-      checkboxInput(
-        "futility_OS",
-        "Enable OS futility",
-        value = FALSE
-      ),
-      numericInput(
-        "futility_HR_OS",
-        "OS futility HR",
-        value = 1.2,
-        min = 1
+        choices = c("Select a spending family" = "", "OF", "Pocock", "HSD"),
+        selected = ""
       ),
       conditionalPanel(
-        "input.futility_PFS",
-        numericInput(
-          "efficacy_start_PFS",
-          "First PFS efficacy look",
-          value = 1,
-          min = 1,
-          step = 1
+        "input.alpha_spending_PFS == 'HSD'",
+        textInput(
+          "alpha_spending_gamma_PFS",
+          "PFS HSD gamma"
         )
       ),
       conditionalPanel(
-        "input.futility_OS",
-        numericInput(
-          "efficacy_start_OS",
-          "First OS efficacy look",
-          value = 1,
-          min = 1,
-          step = 1
+        "input.alpha_spending_OS == 'HSD'",
+        textInput(
+          "alpha_spending_gamma_OS",
+          "OS HSD gamma"
         )
       ),
+      tags$hr(),
+      tags$h4("Look configuration"),
+      tags$p("Select efficacy and futility analyses by endpoint and look."),
+      uiOutput("look_selection"),
       selectInput(
         "hierarchy_primary",
         "Primary endpoint",
@@ -240,8 +360,7 @@ ui <- fluidPage(
       ),
       checkboxInput(
         "show_advanced_settings",
-        "Show advanced settings",
-        value = FALSE
+        "Show advanced settings"
       ),
       conditionalPanel(
         "input.show_advanced_settings",
@@ -261,15 +380,14 @@ ui <- fluidPage(
         numericInput(
           "seed",
           "Random seed",
-          value = 777,
+          value = 1,
           min = 0,
           step = 1
         )
       ),
       checkboxInput(
         "simulation",
-        "Run simulation",
-        value = FALSE
+        "Run simulation"
       ),
       conditionalPanel(
         "input.simulation",
@@ -309,6 +427,21 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  output$look_selection <- renderUI({
+    tryCatch(
+      {
+        d_PFS_vec <- parse_numeric_vector(input$d_PFS_vec, "d_PFS_vec")
+        look_selection_table(length(d_PFS_vec))
+      },
+      error = function(error) {
+        tags$p(
+          class = "text-danger",
+          "Enter a valid target PFS event vector to configure looks."
+        )
+      }
+    )
+  })
+
   calculation <- eventReactive(
     input$run,
     {
