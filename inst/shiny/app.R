@@ -52,6 +52,90 @@ look_input_id <- function(type, endpoint, look) {
   paste(type, endpoint, look, sep = "_")
 }
 
+accrual_input_id <- function(type, segment) {
+  paste(type, segment, sep = "_")
+}
+
+parse_accrual_segment_count <- function(value) {
+  if (is.null(value) || length(value) != 1 || is.na(value) ||
+      !is.finite(value) || value != as.integer(value) || value < 1) {
+    stop("Number of accrual segments must be a positive integer.")
+  }
+
+  as.integer(value)
+}
+
+collect_accrual_configuration <- function(input) {
+  segment_count <- parse_accrual_segment_count(input$accrual_segments)
+  accrual_rate <- vapply(seq_len(segment_count), function(segment) {
+    value <- input[[accrual_input_id("accrual_rate", segment)]]
+    if (is.null(value) || is.na(value)) {
+      stop("Each accrual segment must have an accrual rate.")
+    }
+    value
+  }, numeric(1))
+  start_time <- 0
+
+  if (segment_count > 1) {
+    start_time <- c(start_time, vapply(
+      2:segment_count,
+      function(segment) {
+        value <- input[[accrual_input_id("accrual_start", segment)]]
+        if (is.null(value) || is.na(value)) {
+          stop("Each accrual segment after the first must have a start time.")
+        }
+        value
+      },
+      numeric(1)
+    ))
+  }
+
+  list(
+    t_vec = if (segment_count == 1) NULL else start_time[-1],
+    v_vec = accrual_rate
+  )
+}
+
+accrual_table <- function(segment_count) {
+  rows <- list()
+
+  for (segment in seq_len(segment_count)) {
+    start_time_cell <- if (segment == 1) {
+      tags$span("0")
+    } else {
+      numericInput(
+        inputId = accrual_input_id("accrual_start", segment),
+        label = NULL,
+        value = NULL,
+        min = 0,
+        width = "100%"
+      )
+    }
+    rows[[segment]] <- tags$tr(
+      tags$td(segment),
+      tags$td(start_time_cell),
+      tags$td(numericInput(
+        inputId = accrual_input_id("accrual_rate", segment),
+        label = NULL,
+        value = NULL,
+        min = 0,
+        width = "100%"
+      ))
+    )
+  }
+
+  tags$table(
+    class = "table table-condensed table-bordered",
+    style = "table-layout: fixed; width: 100%;",
+    tags$thead(tags$tr(
+      tags$th("Segment"),
+      tags$th("Start time"),
+      tags$th("Accrual rate")
+    )),
+    do.call(tags$tbody, rows)
+  )
+}
+
 selected_looks <- function(input, type, endpoint, looks) {
   looks[vapply(looks, function(look) {
     isTRUE(input[[look_input_id(type, endpoint, look)]])
@@ -121,10 +205,10 @@ look_selection_table <- function(L) {
         numericInput(
           inputId = look_input_id("futility_HR", endpoint, look),
           label = NULL,
-          value = NULL,
+          value = 1.2,
           min = 1,
           step = 0.01,
-          width = "90px"
+          width = "100%"
         )
       }
       rows[[length(rows) + 1]] <- tags$tr(
@@ -157,6 +241,7 @@ look_selection_table <- function(L) {
 collect_pipeline_arguments <- function(input) {
   d_PFS_vec <- parse_numeric_vector(input$d_PFS_vec, "d_PFS_vec")
   look_configuration <- collect_look_configuration(input, length(d_PFS_vec))
+  accrual_configuration <- collect_accrual_configuration(input)
   treatment_arguments <- switch(input$effect_mode,
     hr = list(
       HR_PFS = input$HR_PFS,
@@ -180,7 +265,14 @@ collect_pipeline_arguments <- function(input) {
   optional_arguments <- list()
   alpha <- optional_number(input$alpha, "alpha")
   tol <- optional_number(input$tol, "tol")
-  seed <- optional_number(input$seed, "seed")
+  integration_seed <- optional_number(
+    input$integration_seed,
+    "integration_seed"
+  )
+  simulation_seed <- optional_number(
+    input$simulation_seed,
+    "simulation_seed"
+  )
   n_sim <- optional_number(input$n_sim, "n_sim")
   if (!is.null(alpha)) {
     optional_arguments$alpha <- alpha
@@ -188,8 +280,8 @@ collect_pipeline_arguments <- function(input) {
   if (!is.null(tol)) {
     optional_arguments$tol <- tol
   }
-  if (!is.null(seed)) {
-    optional_arguments$seed <- seed
+  if (!is.null(integration_seed)) {
+    optional_arguments$integration_seed <- integration_seed
   }
   if (isTRUE(input$simulation)) {
     optional_arguments$simulation <- TRUE
@@ -197,20 +289,16 @@ collect_pipeline_arguments <- function(input) {
   if (!is.null(n_sim)) {
     optional_arguments$n_sim <- n_sim
   }
+  if (!is.null(simulation_seed)) {
+    optional_arguments$simulation_seed <- simulation_seed
+  }
 
   arguments <- list(
     n_T = input$n_T,
     n_C = input$n_C,
     d_PFS_vec = d_PFS_vec,
-    t_vec = parse_numeric_vector(
-      input$t_vec,
-      "t_vec",
-      allow_empty = TRUE
-    ),
-    v_vec = parse_numeric_vector(
-      input$v_vec,
-      "v_vec"
-    ),
+    t_vec = accrual_configuration$t_vec,
+    v_vec = accrual_configuration$v_vec,
     median_PFS_C = input$median_PFS_C,
     median_OS_C = input$median_OS_C,
     alpha_spending_PFS = input$alpha_spending_PFS,
@@ -242,50 +330,39 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       width = 4,
+      tags$h3("Trial design parameters"),
       numericInput(
         "n_T",
-        "Treatment sample size",
+        "Treatment group sample size",
         value = NULL,
         min = 1,
         step = 1
       ),
       numericInput(
         "n_C",
-        "Control sample size",
+        "Control group sample size",
         value = NULL,
         min = 1,
         step = 1
       ),
-      textInput(
-        "d_PFS_vec",
-        "Target PFS events by look"
-      ),
-      textInput(
-        "t_vec",
-        "Accrual start times (optional, leave blank for uniform accrual)"
-      ),
-      textInput(
-        "v_vec",
-        "Accrual rates by segment"
-      ),
       numericInput(
         "median_PFS_C",
-        "Control median PFS",
+        "Control group median PFS",
         value = NULL,
         min = 0
       ),
       numericInput(
         "median_OS_C",
-        "Control median OS",
+        "Control group median OS",
         value = NULL,
         min = 0
       ),
       radioButtons(
         "effect_mode",
-        "Treatment effect input",
+        "Input type for treatment effect",
         choices = c(
           "Hazard ratios" = "hr",
-          "Treatment medians" = "median"
+          "Median survival times" = "median"
         ),
         selected = character(0),
         inline = TRUE
@@ -311,27 +388,57 @@ ui <- fluidPage(
         "input.effect_mode == 'median'",
         numericInput(
           "median_PFS_T",
-          "Treatment median PFS",
+          "Treatment group median PFS",
           value = NULL,
           min = 0
         ),
         numericInput(
           "median_OS_T",
-          "Treatment median OS",
+          "Treatment group median OS",
           value = NULL,
           min = 0
         )
       ),
       selectInput(
+        "hierarchy_primary",
+        "Primary endpoint",
+        choices = c("PFS", "OS"),
+        selected = "PFS"
+      ),
+      tags$hr(),
+      tags$h3("Patient accrual parameters"),
+      numericInput(
+        "accrual_segments",
+        "Number of accrual segments",
+        value = NULL,
+        min = 1,
+        step = 1
+      ),
+      tags$label("Accrual configuration", class = "control-label"),
+      uiOutput("accrual_configuration"),
+      tags$hr(),
+      tags$h3("Group sequential parameters"),
+      textInput(
+        "d_PFS_vec",
+        "Target PFS events by look"
+      ),
+      numericInput(
+        "alpha",
+        "One-sided alpha",
+        value = 0.025,
+        min = 0,
+        max = 1
+      ),
+      selectInput(
         "alpha_spending_PFS",
-        "PFS alpha spending",
-        choices = c("Select a spending family" = "", "OF", "Pocock", "HSD"),
+        "PFS alpha spending function",
+        choices = c("Select a spending function" = "", "OF", "Pocock", "HSD"),
         selected = ""
       ),
       selectInput(
         "alpha_spending_OS",
-        "OS alpha spending",
-        choices = c("Select a spending family" = "", "OF", "Pocock", "HSD"),
+        "OS alpha spending function",
+        choices = c("Select a spending function" = "", "OF", "Pocock", "HSD"),
         selected = ""
       ),
       conditionalPanel(
@@ -348,43 +455,10 @@ ui <- fluidPage(
           "OS HSD gamma"
         )
       ),
-      tags$hr(),
-      tags$h4("Look configuration"),
-      tags$p("Select efficacy and futility analyses by endpoint and look."),
+      tags$label("Boundary configuration", class = "control-label"),
       uiOutput("look_selection"),
-      selectInput(
-        "hierarchy_primary",
-        "Primary endpoint",
-        choices = c("PFS", "OS"),
-        selected = "PFS"
-      ),
-      checkboxInput(
-        "show_advanced_settings",
-        "Show advanced settings"
-      ),
-      conditionalPanel(
-        "input.show_advanced_settings",
-        numericInput(
-          "alpha",
-          "One-sided alpha",
-          value = 0.025,
-          min = 0,
-          max = 1
-        ),
-        numericInput(
-          "tol",
-          "Numerical tolerance",
-          value = 1e-8,
-          min = 0
-        ),
-        numericInput(
-          "seed",
-          "Random seed",
-          value = 1,
-          min = 0,
-          step = 1
-        )
-      ),
+      tags$hr(),
+      tags$h3("Advanced settings"),
       checkboxInput(
         "simulation",
         "Run simulation"
@@ -396,6 +470,33 @@ ui <- fluidPage(
           "Simulation replicates",
           value = 500,
           min = 2,
+          step = 1
+        ),
+        numericInput(
+          "simulation_seed",
+          "Random seed",
+          value = 1,
+          min = 0,
+          step = 1
+        )
+      ),
+      checkboxInput(
+        "show_computation_settings",
+        "Computational settings"
+      ),
+      conditionalPanel(
+        "input.show_computation_settings",
+        numericInput(
+          "tol",
+          "Numerical tolerance",
+          value = 1e-8,
+          min = 0
+        ),
+        numericInput(
+          "integration_seed",
+          "Random seed",
+          value = 1,
+          min = 0,
           step = 1
         )
       ),
@@ -427,7 +528,30 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  output$accrual_configuration <- renderUI({
+    if (is.null(input$accrual_segments) ||
+        length(input$accrual_segments) != 1 ||
+        is.na(input$accrual_segments)) {
+      return(NULL)
+    }
+    tryCatch(
+      {
+        segment_count <- parse_accrual_segment_count(input$accrual_segments)
+        accrual_table(segment_count)
+      },
+      error = function(error) {
+        tags$p(
+          class = "text-danger",
+          "Enter the number of accrual segments to configure accrual."
+        )
+      }
+    )
+  })
+
   output$look_selection <- renderUI({
+    if (is.null(input$d_PFS_vec) || !nzchar(trimws(input$d_PFS_vec))) {
+      return(NULL)
+    }
     tryCatch(
       {
         d_PFS_vec <- parse_numeric_vector(input$d_PFS_vec, "d_PFS_vec")
