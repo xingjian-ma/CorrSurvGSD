@@ -233,12 +233,12 @@ summarize_simulation_power <- function(z, boundary, hierarchy_order) {
 run_simulation <- function(state) {
   design <- state$design
   n_sim <- state$options$n_sim
-  seed <- state$options$seed
+  simulation_seed <- state$options$simulation_seed
 
   z <- simulate_trial_statistics(
     design = design,
     n_sim = n_sim,
-    seed = seed
+    seed = simulation_seed
   )
   state$empirical_results <- c(
     list(

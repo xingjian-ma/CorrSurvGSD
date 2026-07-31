@@ -28,7 +28,8 @@ library(checkmate)
 #   futility_HR            — scalar, endpoint vector, or endpoint look vectors
 #   hierarchy_order        — named primary-to-secondary endpoint order
 #   tol                    — shared numerical tolerance setting
-#   seed                   — shared random seed for numerical routines
+#   integration_seed       — random seed for theoretical integration
+#   simulation_seed        — random seed for Monte Carlo simulation
 #   simulation             — whether to run Module 5 simulation
 #   n_sim                  — number of valid simulation replicates
 #
@@ -49,7 +50,8 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
                                  futility_HR = 1.2,
                                  hierarchy_order = c(primary = "PFS", secondary = "OS"),
                                  tol = 1e-8,
-                                 seed = 1,
+                                 integration_seed = 1,
+                                 simulation_seed = 1,
                                  simulation = FALSE,
                                  n_sim = 500) {
   # --- n_T, n_C: sample sizes (integer, strictly positive) ---
@@ -302,7 +304,10 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
   assert_number(tol, lower = 0, finite = TRUE,
                 .var.name = "tol")
 
-  assert_count(seed, positive = FALSE, .var.name = "seed")
+  assert_count(integration_seed, positive = FALSE,
+               .var.name = "integration_seed")
+  assert_count(simulation_seed, positive = FALSE,
+               .var.name = "simulation_seed")
 
   assert_flag(simulation, .var.name = "simulation")
   if (simulation) {
@@ -347,10 +352,11 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
       alpha      = alpha
     ),
     options = list(
-      tol        = tol,
-      seed       = seed,
-      simulation = simulation,
-      n_sim      = n_sim
+      tol              = tol,
+      integration_seed = integration_seed,
+      simulation_seed  = simulation_seed,
+      simulation       = simulation,
+      n_sim            = n_sim
     )
   )
   class(state) <- "trial_state"

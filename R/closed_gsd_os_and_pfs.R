@@ -200,7 +200,7 @@ closed_gsd_os_and_pfs <- function(state) {
   design <- state$design
   correlation_matrix <-
     state$theoretical_results$joint_correlation_matrix
-  seed <- state$options$seed
+  integration_seed <- state$options$integration_seed
   L <- design$L
 
   PFS_boundary <- build_boundary(
@@ -252,14 +252,14 @@ closed_gsd_os_and_pfs <- function(state) {
     correlation_matrix = correlation_matrix[PFS_indices, PFS_indices],
     boundary = boundary[PFS_indices, , drop = FALSE],
     L = L,
-    seed = seed
+    seed = integration_seed
   )
   OS_marginal_power <- calculate_marginal_power(
     mean_vector = mean_vector[OS_indices],
     correlation_matrix = correlation_matrix[OS_indices, OS_indices],
     boundary = boundary[OS_indices, , drop = FALSE],
     L = L,
-    seed = seed
+    seed = integration_seed
   )
   state$theoretical_results$marginal_power <- rbind(
     PFS_marginal_power,
@@ -276,7 +276,7 @@ closed_gsd_os_and_pfs <- function(state) {
     boundary = boundary,
     hierarchy_order = design$hierarchy_order,
     L = L,
-    seed = seed
+    seed = integration_seed
   )
 
   state$theoretical_results$joint_power_matrix <- joint_power_matrix
