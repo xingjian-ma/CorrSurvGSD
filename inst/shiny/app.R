@@ -39,31 +39,6 @@ format_boundary_value <- function(value, digits = 4) {
   format_result_value(value, digits = digits)
 }
 
-boundary_results_table <- function(state) {
-  design <- state$design
-  digits <- state$options$display_digits
-  L <- design$L
-  endpoints <- c("PFS", "OS")
-
-  do.call(rbind, lapply(endpoints, function(endpoint) {
-    boundary <- design$boundary[paste0(endpoint, "_", seq_len(L)), , drop = FALSE]
-
-    data.frame(
-      Endpoint = endpoint,
-      Look = seq_len(L),
-      "Futility boundary" = vapply(
-        boundary[, "futility"], format_boundary_value,
-        FUN.VALUE = character(1), digits = digits
-      ),
-      "Efficacy boundary" = vapply(
-        boundary[, "efficacy"], format_boundary_value,
-        FUN.VALUE = character(1), digits = digits
-      ),
-      check.names = FALSE
-    )
-  }))
-}
-
 marginal_power_results_table <- function(state) {
   theoretical <- state$theoretical_results$marginal_power
   digits <- state$options$display_digits
@@ -118,6 +93,132 @@ joint_power_results_table <- function(power, digits = 4) {
   names(result)[1] <- ""
   names(result)[-1] <- colnames(power)
   result
+}
+
+trial_design_table <- function(state) {
+  design <- state$design
+  digits <- state$options$display_digits
+
+  data.frame(
+    Item = c(
+      "Treatment sample size",
+      "Control sample size",
+      "Allocation ratio",
+      "Control median PFS",
+      "Control median OS",
+      "Assumed PFS HR",
+      "Assumed OS HR",
+      "Derived treatment median PFS",
+      "Derived treatment median OS"
+    ),
+    Value = c(
+      as.character(design$n_T),
+      as.character(design$n_C),
+      format_result_value(design$r, digits),
+      format_result_value(log(2) / design$Lambda_C, digits),
+      format_result_value(log(2) / design$lambda_2_C, digits),
+      format_result_value(design$HR_PFS, digits),
+      format_result_value(design$HR_OS, digits),
+      format_result_value(log(2) / design$Lambda_T, digits),
+      format_result_value(log(2) / design$lambda_2_T, digits)
+    ),
+    check.names = FALSE
+  )
+}
+
+accrual_design_table <- function(state) {
+  design <- state$design
+  digits <- state$options$display_digits
+  segment_count <- length(design$v_vec)
+  start_time <- c(0, head(design$t_vec, -1))
+
+  data.frame(
+    Segment = seq_len(segment_count),
+    "Start time" = vapply(start_time, format_result_value, character(1),
+                           digits = digits),
+    Duration = vapply(design$R_vec, format_result_value, character(1),
+                      digits = digits),
+    "Accrual rate" = vapply(design$v_vec, format_result_value, character(1),
+                             digits = digits),
+    check.names = FALSE
+  )
+}
+
+analysis_schedule_table <- function(state) {
+  design <- state$design
+  digits <- state$options$display_digits
+
+  data.frame(
+    Look = seq_len(design$L),
+    "Target PFS events" = as.integer(design$d_PFS_vec),
+    "Derived OS events" = vapply(
+      design$d_OS_vec, format_result_value, character(1), digits = digits
+    ),
+    "Calendar cutoff" = vapply(
+      design$A_vec, format_result_value, character(1), digits = digits
+    ),
+    check.names = FALSE
+  )
+}
+
+endpoint_testing_table <- function(state) {
+  design <- state$design
+  digits <- state$options$display_digits
+  endpoints <- c("PFS", "OS")
+
+  do.call(rbind, lapply(endpoints, function(endpoint) {
+    looks <- seq_len(design$L)
+    futility_looks <- design$futility_looks[[endpoint]]
+    futility_positions <- match(looks, futility_looks)
+    boundary <- design$boundary[paste0(endpoint, "_", looks), , drop = FALSE]
+
+    data.frame(
+      Endpoint = endpoint,
+      Look = looks,
+      "Futility HR" = vapply(futility_positions, function(position) {
+        if (is.na(position)) {
+          return("-")
+        }
+        format_result_value(design$futility_HR[[endpoint]][position], digits)
+      }, character(1)),
+      "Futility boundary" = vapply(
+        boundary[, "futility"], format_boundary_value,
+        character(1), digits = digits
+      ),
+      "Efficacy boundary" = vapply(
+        boundary[, "efficacy"], format_boundary_value,
+        character(1), digits = digits
+      ),
+      check.names = FALSE
+    )
+  }))
+}
+
+testing_summary_table <- function(state) {
+  design <- state$design
+  digits <- state$options$display_digits
+
+  data.frame(
+    Item = c("One-sided alpha", "Gatekeeping order"),
+    Value = c(
+      format_result_value(design$alpha, digits),
+      paste(design$hierarchy_order, collapse = " -> ")
+    ),
+    check.names = FALSE
+  )
+}
+
+write_csv_section <- function(connection, title, table) {
+  writeLines(title, connection)
+  utils::write.table(
+    table,
+    file = connection,
+    sep = ",",
+    row.names = FALSE,
+    col.names = TRUE,
+    quote = TRUE
+  )
+  writeLines("", connection)
 }
 
 parse_single_number <- function(value, name) {
@@ -429,7 +530,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       width = 4,
-      tags$h3("Trial design parameters"),
+      tags$h3("Basic parameters"),
       numericInput(
         "n_T",
         "Treatment group sample size",
@@ -498,14 +599,8 @@ ui <- fluidPage(
           min = 0
         )
       ),
-      selectInput(
-        "hierarchy_primary",
-        "Primary endpoint",
-        choices = c("PFS", "OS"),
-        selected = "PFS"
-      ),
       tags$hr(),
-      tags$h3("Patient accrual parameters"),
+      tags$h3("Patient accrual"),
       numericInput(
         "accrual_segments",
         "Number of accrual segments",
@@ -516,7 +611,13 @@ ui <- fluidPage(
       tags$label("Accrual configuration", class = "control-label"),
       uiOutput("accrual_configuration"),
       tags$hr(),
-      tags$h3("Group sequential parameters"),
+      tags$h3("Sequential design parameters"),
+      selectInput(
+        "hierarchy_primary",
+        "Primary endpoint",
+        choices = c("PFS", "OS"),
+        selected = "PFS"
+      ),
       textInput(
         "d_PFS_vec",
         "Target PFS events by look"
@@ -616,15 +717,23 @@ ui <- fluidPage(
     mainPanel(
       width = 8,
       textOutput("status"),
+      downloadButton("download_tables", "Download tables (CSV)"),
       tabsetPanel(
         tabPanel(
           "Input and design",
-          verbatimTextOutput("design")
+          tags$h3("Trial design"),
+          tableOutput("trial_design"),
+          tags$h3("Accrual"),
+          tableOutput("accrual_design"),
+          tags$h3("Analysis schedule and testing"),
+          tags$h4("Analysis schedule"),
+          tableOutput("analysis_schedule"),
+          tags$h4("Testing configuration"),
+          tableOutput("testing_summary"),
+          tableOutput("endpoint_testing")
         ),
         tabPanel(
           "Results",
-          tags$h3("Boundary"),
-          tableOutput("boundary_results"),
           tags$h3("Marginal power"),
           tableOutput("marginal_power_results"),
           tags$h3("Joint power"),
@@ -716,12 +825,78 @@ server <- function(input, output, session) {
     "Pipeline completed."
   })
 
-  output$design <- renderPrint({
-    current_state()$design
-  })
+  output$download_tables <- downloadHandler(
+    filename = function() {
+      paste0("group-sequential-design-", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      state <- current_state()
+      digits <- state$options$display_digits
+      connection <- base::file(file, open = "wt", encoding = "UTF-8")
+      on.exit(close(connection), add = TRUE)
 
-  output$boundary_results <- renderTable({
-    boundary_results_table(current_state())
+      write_csv_section(connection, "Trial design", trial_design_table(state))
+      write_csv_section(connection, "Accrual", accrual_design_table(state))
+      write_csv_section(
+        connection,
+        "Analysis schedule",
+        analysis_schedule_table(state)
+      )
+      write_csv_section(
+        connection,
+        "Testing summary",
+        testing_summary_table(state)
+      )
+      write_csv_section(
+        connection,
+        "Testing configuration",
+        endpoint_testing_table(state)
+      )
+      write_csv_section(
+        connection,
+        "Marginal power",
+        marginal_power_results_table(state)
+      )
+      write_csv_section(
+        connection,
+        "Theoretical joint power",
+        joint_power_results_table(
+          state$theoretical_results$joint_power_matrix,
+          digits = digits
+        )
+      )
+
+      if (isTRUE(state$options$simulation)) {
+        write_csv_section(
+          connection,
+          "Simulation joint power",
+          joint_power_results_table(
+            state$empirical_results$joint_power_matrix,
+            digits = digits
+          )
+        )
+      }
+    }
+  )
+
+  output$trial_design <- renderTable({
+    trial_design_table(current_state())
+  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
+
+  output$accrual_design <- renderTable({
+    accrual_design_table(current_state())
+  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
+
+  output$analysis_schedule <- renderTable({
+    analysis_schedule_table(current_state())
+  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
+
+  output$testing_summary <- renderTable({
+    testing_summary_table(current_state())
+  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
+
+  output$endpoint_testing <- renderTable({
+    endpoint_testing_table(current_state())
   }, striped = TRUE, bordered = TRUE, rownames = FALSE)
 
   output$marginal_power_results <- renderTable({
