@@ -20,9 +20,104 @@ parse_numeric_vector <- function(value, name, allow_empty = FALSE) {
   values
 }
 
-without_mean_vector <- function(results) {
-  results$joint_mean_vector <- NULL
-  results
+format_result_value <- function(value, digits = 4) {
+  if (is.na(value)) {
+    return("—")
+  }
+
+  formatC(value, format = "f", digits = digits)
+}
+
+format_boundary_value <- function(value, digits = 4) {
+  if (is.na(value)) {
+    return("—")
+  }
+  if (is.infinite(value)) {
+    return("-")
+  }
+
+  format_result_value(value, digits = digits)
+}
+
+boundary_results_table <- function(state) {
+  design <- state$design
+  digits <- state$options$display_digits
+  L <- design$L
+  endpoints <- c("PFS", "OS")
+
+  do.call(rbind, lapply(endpoints, function(endpoint) {
+    boundary <- design$boundary[paste0(endpoint, "_", seq_len(L)), , drop = FALSE]
+
+    data.frame(
+      Endpoint = endpoint,
+      Look = seq_len(L),
+      "Futility boundary" = vapply(
+        boundary[, "futility"], format_boundary_value,
+        FUN.VALUE = character(1), digits = digits
+      ),
+      "Efficacy boundary" = vapply(
+        boundary[, "efficacy"], format_boundary_value,
+        FUN.VALUE = character(1), digits = digits
+      ),
+      check.names = FALSE
+    )
+  }))
+}
+
+marginal_power_results_table <- function(state) {
+  theoretical <- state$theoretical_results$marginal_power
+  digits <- state$options$display_digits
+  simulation <- if (isTRUE(state$options$simulation)) {
+    state$empirical_results$marginal_power
+  } else {
+    NULL
+  }
+  labels <- strsplit(rownames(theoretical), "_", fixed = TRUE)
+
+  result <- data.frame(
+    Endpoint = vapply(labels, `[[`, character(1), 1),
+    Look = as.integer(vapply(labels, `[[`, character(1), 2)),
+    "Theoretical incremental power" = vapply(
+      theoretical[, "incremental"], format_result_value, character(1),
+      digits = digits
+    ),
+    check.names = FALSE
+  )
+
+  if (!is.null(simulation)) {
+    result[["Simulation incremental power"]] <- vapply(
+      simulation[, "incremental"], format_result_value, character(1),
+      digits = digits
+    )
+  }
+  result[["Theoretical cumulative power"]] <- vapply(
+    theoretical[, "cumulative"], format_result_value, character(1),
+    digits = digits
+  )
+
+  if (!is.null(simulation)) {
+    result[["Simulation cumulative power"]] <- vapply(
+      simulation[, "cumulative"], format_result_value, character(1),
+      digits = digits
+    )
+  }
+
+  result
+}
+
+joint_power_results_table <- function(power, digits = 4) {
+  formatted_power <- apply(
+    power, c(1, 2), format_result_value, digits = digits
+  )
+
+  result <- data.frame(
+    row_label = rownames(power),
+    formatted_power,
+    check.names = FALSE
+  )
+  names(result)[1] <- ""
+  names(result)[-1] <- colnames(power)
+  result
 }
 
 parse_single_number <- function(value, name) {
@@ -273,6 +368,7 @@ collect_pipeline_arguments <- function(input) {
     input$simulation_seed,
     "simulation_seed"
   )
+  display_digits <- optional_number(input$display_digits, "display_digits")
   n_sim <- optional_number(input$n_sim, "n_sim")
   if (!is.null(alpha)) {
     optional_arguments$alpha <- alpha
@@ -291,6 +387,9 @@ collect_pipeline_arguments <- function(input) {
   }
   if (!is.null(simulation_seed)) {
     optional_arguments$simulation_seed <- simulation_seed
+  }
+  if (!is.null(display_digits)) {
+    optional_arguments$display_digits <- display_digits
   }
 
   arguments <- list(
@@ -498,6 +597,14 @@ ui <- fluidPage(
           value = 1,
           min = 0,
           step = 1
+        ),
+        numericInput(
+          "display_digits",
+          "Result decimal places",
+          value = 4,
+          min = 0,
+          max = 10,
+          step = 1
         )
       ),
       actionButton(
@@ -515,12 +622,13 @@ ui <- fluidPage(
           verbatimTextOutput("design")
         ),
         tabPanel(
-          "Theoretical results",
-          verbatimTextOutput("theoretical")
-        ),
-        tabPanel(
-          "Simulation results",
-          verbatimTextOutput("simulation_results")
+          "Results",
+          tags$h3("Boundary"),
+          tableOutput("boundary_results"),
+          tags$h3("Marginal power"),
+          tableOutput("marginal_power_results"),
+          tags$h3("Joint power"),
+          uiOutput("joint_power_results")
         )
       )
     )
@@ -612,20 +720,59 @@ server <- function(input, output, session) {
     current_state()$design
   })
 
-  output$theoretical <- renderPrint({
-    without_mean_vector(current_state()$theoretical_results)
-  })
+  output$boundary_results <- renderTable({
+    boundary_results_table(current_state())
+  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
 
-  output$simulation_results <- renderPrint({
+  output$marginal_power_results <- renderTable({
+    marginal_power_results_table(current_state())
+  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
+
+  output$joint_power_results <- renderUI({
     state <- current_state()
 
-    if (!state$options$simulation) {
-      cat("Simulation was not requested.")
-      return(invisible(NULL))
+    if (isTRUE(state$options$simulation)) {
+      fluidRow(
+        column(
+          width = 6,
+          tags$h4("Theoretical"),
+          tableOutput("theoretical_joint_power")
+        ),
+        column(
+          width = 6,
+          tags$h4("Simulation"),
+          tableOutput("simulation_joint_power")
+        )
+      )
+    } else {
+      fluidRow(
+        column(
+          width = 12,
+          tags$h4("Theoretical"),
+          tableOutput("theoretical_joint_power")
+        )
+      )
     }
-
-    without_mean_vector(state$empirical_results)
   })
+
+  output$theoretical_joint_power <- renderTable({
+    state <- current_state()
+
+    joint_power_results_table(
+      state$theoretical_results$joint_power_matrix,
+      digits = state$options$display_digits
+    )
+  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
+
+  output$simulation_joint_power <- renderTable({
+    state <- current_state()
+    req(isTRUE(state$options$simulation))
+
+    joint_power_results_table(
+      state$empirical_results$joint_power_matrix,
+      digits = state$options$display_digits
+    )
+  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
 }
 
 shinyApp(ui = ui, server = server)

@@ -32,6 +32,7 @@ library(checkmate)
 #   simulation_seed        — random seed for Monte Carlo simulation
 #   simulation             — whether to run Module 5 simulation
 #   n_sim                  — number of valid simulation replicates
+#   display_digits         — decimal places shown in Results tables
 #
 # Returns a list with class "trial_state", containing elements
 # `design` and `options`.
@@ -53,7 +54,8 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
                                  integration_seed = 1,
                                  simulation_seed = 1,
                                  simulation = FALSE,
-                                 n_sim = 500) {
+                                 n_sim = 500,
+                                 display_digits = 4) {
   # --- n_T, n_C: sample sizes (integer, strictly positive) ---
   assert_count(n_T, positive = TRUE, .var.name = "n_T")
   assert_count(n_C, positive = TRUE, .var.name = "n_C")
@@ -96,12 +98,12 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     HR_PFS     <- Lambda_T / Lambda_C
     HR_OS      <- lambda_2_T / lambda_2_C
   } else {
-    assert_number(HR_PFS, lower = .Machine$double.eps, finite = TRUE,
+    assert_number(HR_PFS, lower = .Machine$double.eps, upper = 1,
+                  finite = TRUE,
                   .var.name = "HR_PFS")
-    assert_true(HR_PFS < 1)
-    assert_number(HR_OS, lower = .Machine$double.eps, finite = TRUE,
+    assert_number(HR_OS, lower = .Machine$double.eps, upper = 1,
+                  finite = TRUE,
                   .var.name = "HR_OS")
-    assert_true(HR_OS < 1)
 
     Lambda_T   <- HR_PFS * Lambda_C
     lambda_2_T <- HR_OS * lambda_2_C
@@ -317,6 +319,12 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     }
   }
 
+  assert_count(display_digits, positive = FALSE,
+               .var.name = "display_digits")
+  if (display_digits > 10) {
+    stop("display_digits must be at most 10.")
+  }
+
   # --- assemble and return ---
   r          <- n_T / n_C
 
@@ -356,7 +364,8 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
       integration_seed = integration_seed,
       simulation_seed  = simulation_seed,
       simulation       = simulation,
-      n_sim            = n_sim
+      n_sim            = n_sim,
+      display_digits   = display_digits
     )
   )
   class(state) <- "trial_state"
