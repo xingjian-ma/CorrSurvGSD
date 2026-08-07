@@ -1,14 +1,7 @@
 # run_example.R — execute an example group sequential design.
 
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
-
-source("../R/utils.R")
-source("../R/per_subject_moments.R")
-source("../R/calendar_cutoff.R")
-source("../R/joint_cor_matrix.R")
-source("../R/closed_gsd_os_and_pfs.R")
-source("../R/simulation.R")
-source("../R/pipeline.R")
+# Run this script with CorrSurvGSD/ as the working directory.
+devtools::load_all(".")
 
 print_pipeline_results <- function(state) {
   cat("\nExpected calendar cutoff times (A_vec):\n")

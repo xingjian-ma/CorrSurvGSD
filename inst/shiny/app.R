@@ -1,21 +1,10 @@
 # app.R — minimal interface for the complete analysis pipeline.
 
-library(shiny)
-
-# Load the pipeline modules from the fixed CorrSurvGSD directory structure.
-app_dir <- dirname(normalizePath(sys.frame(1)$ofile))
-r_dir <- normalizePath(file.path(app_dir, "..", "..", "R"))
-for (module in c(
-  "utils.R",
-  "per_subject_moments.R",
-  "calendar_cutoff.R",
-  "joint_cor_matrix.R",
-  "closed_gsd_os_and_pfs.R",
-  "simulation.R",
-  "pipeline.R"
-)) {
-  source(file.path(r_dir, module), local = .GlobalEnv)
+if (!requireNamespace("shiny", quietly = TRUE)) {
+  stop("The Shiny application requires the 'shiny' package.")
 }
+
+library(shiny)
 
 parse_numeric_vector <- function(value, name, allow_empty = FALSE) {
   value <- trimws(value)
@@ -835,7 +824,7 @@ server <- function(input, output, session) {
             {
               arguments <- collect_pipeline_arguments(input)
               incProgress(0.1, detail = "Validating inputs")
-              result <- do.call(run_pipeline, arguments)
+              result <- do.call(CorrSurvGSD::run_pipeline, arguments)
               incProgress(0.9, detail = "Preparing results")
               result
             }
