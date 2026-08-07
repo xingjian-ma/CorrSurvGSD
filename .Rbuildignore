@@ -2,3 +2,5 @@
 ^LICENSE\.md$
 ^\.gitignore$
 ^vignettes/\.gitignore$
+^.*\.Rproj$
+^\.Rproj\.user$

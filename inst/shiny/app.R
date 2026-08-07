@@ -26,7 +26,7 @@ parse_numeric_vector <- function(value, name, allow_empty = FALSE) {
 
 format_result_value <- function(value, digits = 4) {
   if (is.na(value)) {
-    return("—")
+    return("-")
   }
 
   formatC(value, format = "f", digits = digits)
@@ -34,7 +34,7 @@ format_result_value <- function(value, digits = 4) {
 
 format_boundary_value <- function(value, digits = 4) {
   if (is.na(value)) {
-    return("—")
+    return("-")
   }
   if (is.infinite(value)) {
     return("-")
