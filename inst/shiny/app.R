@@ -186,6 +186,16 @@ endpoint_testing_table <- function(state) {
     futility_looks <- design$futility_looks[[endpoint]]
     futility_positions <- match(looks, futility_looks)
     boundary <- design$boundary[paste0(endpoint, "_", looks), , drop = FALSE]
+    boundary_HR <- design$boundary_HR[
+      paste0(endpoint, "_", looks),
+      ,
+      drop = FALSE
+    ]
+    boundary_p <- design$boundary_p[
+      paste0(endpoint, "_", looks),
+      ,
+      drop = FALSE
+    ]
 
     data.frame(
       Endpoint = endpoint,
@@ -196,12 +206,28 @@ endpoint_testing_table <- function(state) {
         }
         format_result_value(design$futility_HR[[endpoint]][position], digits)
       }, character(1)),
-      "Futility boundary" = vapply(
+      "Futility boundary (Z)" = vapply(
         boundary[, "futility"], format_boundary_value,
         character(1), digits = digits
       ),
-      "Efficacy boundary" = vapply(
+      "Efficacy boundary (Z)" = vapply(
         boundary[, "efficacy"], format_boundary_value,
+        character(1), digits = digits
+      ),
+      "Futility boundary (HR)" = vapply(
+        boundary_HR[, "futility"], format_boundary_value,
+        character(1), digits = digits
+      ),
+      "Efficacy boundary (HR)" = vapply(
+        boundary_HR[, "efficacy"], format_boundary_value,
+        character(1), digits = digits
+      ),
+      "Futility boundary (p)" = vapply(
+        boundary_p[, "futility"], format_boundary_value,
+        character(1), digits = digits
+      ),
+      "Efficacy boundary (p)" = vapply(
+        boundary_p[, "efficacy"], format_boundary_value,
         character(1), digits = digits
       ),
       check.names = FALSE

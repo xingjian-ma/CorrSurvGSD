@@ -59,6 +59,40 @@ build_boundary <- function(d_vec, L, alpha, alpha_spending,
 }
 
 # -----------------------------------------------------------------
+# convert_boundary_scales — convert finite Z boundaries to HR and p scales
+
+convert_boundary_scales <- function(boundary, d_vec, r) {
+
+  information_scale <- sqrt(d_vec * r / (1 + r)^2)
+  boundary_HR <- matrix(
+    NA_real_,
+    nrow = nrow(boundary),
+    ncol = ncol(boundary),
+    dimnames = dimnames(boundary)
+  )
+  boundary_p <- matrix(
+    NA_real_,
+    nrow = nrow(boundary),
+    ncol = ncol(boundary),
+    dimnames = dimnames(boundary)
+  )
+
+  for (boundary_type in colnames(boundary)) {
+    finite_boundary <- is.finite(boundary[, boundary_type])
+    boundary_HR[finite_boundary, boundary_type] <- exp(
+      -boundary[finite_boundary, boundary_type] /
+        information_scale[finite_boundary]
+    )
+    boundary_p[finite_boundary, boundary_type] <- stats::pnorm(
+      boundary[finite_boundary, boundary_type],
+      lower.tail = FALSE
+    )
+  }
+
+  list(HR = boundary_HR, p = boundary_p)
+}
+
+# -----------------------------------------------------------------
 # first_crossing_bounds — bounds for first efficacy crossing at look
 
 first_crossing_bounds <- function(boundary, look, gate_start = 1) {
@@ -225,11 +259,32 @@ closed_gsd_os_and_pfs <- function(state) {
     futility_HR = design$futility_HR[["OS"]],
     r = design$r
   )
-  state$design$boundary <- rbind(PFS_boundary, OS_boundary)
-  rownames(state$design$boundary) <- c(
+  PFS_boundary_scales <- convert_boundary_scales(
+    boundary = PFS_boundary,
+    d_vec = design$d_PFS_vec,
+    r = design$r
+  )
+  OS_boundary_scales <- convert_boundary_scales(
+    boundary = OS_boundary,
+    d_vec = design$d_OS_vec,
+    r = design$r
+  )
+  boundary_rownames <- c(
     paste0("PFS_", seq_len(L)),
     paste0("OS_", seq_len(L))
   )
+  state$design$boundary <- rbind(PFS_boundary, OS_boundary)
+  state$design$boundary_HR <- rbind(
+    PFS_boundary_scales$HR,
+    OS_boundary_scales$HR
+  )
+  state$design$boundary_p <- rbind(
+    PFS_boundary_scales$p,
+    OS_boundary_scales$p
+  )
+  rownames(state$design$boundary) <- boundary_rownames
+  rownames(state$design$boundary_HR) <- boundary_rownames
+  rownames(state$design$boundary_p) <- boundary_rownames
   boundary <- state$design$boundary
 
   state$theoretical_results$joint_mean_vector <- c(
