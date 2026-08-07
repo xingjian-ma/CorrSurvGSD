@@ -2,6 +2,21 @@
 
 library(shiny)
 
+# Load the pipeline modules from the fixed CorrSurvGSD directory structure.
+app_dir <- dirname(normalizePath(sys.frame(1)$ofile))
+r_dir <- normalizePath(file.path(app_dir, "..", "..", "R"))
+for (module in c(
+  "utils.R",
+  "per_subject_moments.R",
+  "calendar_cutoff.R",
+  "joint_cor_matrix.R",
+  "closed_gsd_os_and_pfs.R",
+  "simulation.R",
+  "pipeline.R"
+)) {
+  source(file.path(r_dir, module), local = .GlobalEnv)
+}
+
 parse_numeric_vector <- function(value, name, allow_empty = FALSE) {
   value <- trimws(value)
 
@@ -835,73 +850,49 @@ server <- function(input, output, session) {
       connection <- base::file(file, open = "wt", encoding = "UTF-8")
       on.exit(close(connection), add = TRUE)
 
-      write_csv_section(connection, "Trial design", trial_design_table(state))
-      write_csv_section(connection, "Accrual", accrual_design_table(state))
-      write_csv_section(
-        connection,
-        "Analysis schedule",
-        analysis_schedule_table(state)
-      )
-      write_csv_section(
-        connection,
-        "Testing summary",
-        testing_summary_table(state)
-      )
-      write_csv_section(
-        connection,
-        "Testing configuration",
-        endpoint_testing_table(state)
-      )
-      write_csv_section(
-        connection,
-        "Marginal power",
-        marginal_power_results_table(state)
-      )
-      write_csv_section(
-        connection,
-        "Theoretical joint power",
-        joint_power_results_table(
+      sections <- list(
+        "Trial design" = trial_design_table(state),
+        "Accrual" = accrual_design_table(state),
+        "Analysis schedule" = analysis_schedule_table(state),
+        "Testing summary" = testing_summary_table(state),
+        "Testing configuration" = endpoint_testing_table(state),
+        "Marginal power" = marginal_power_results_table(state),
+        "Theoretical joint power" = joint_power_results_table(
           state$theoretical_results$joint_power_matrix,
           digits = digits
         )
       )
 
       if (isTRUE(state$options$simulation)) {
-        write_csv_section(
-          connection,
-          "Simulation joint power",
-          joint_power_results_table(
-            state$empirical_results$joint_power_matrix,
-            digits = digits
-          )
+        sections[["Simulation joint power"]] <- joint_power_results_table(
+          state$empirical_results$joint_power_matrix,
+          digits = digits
         )
+      }
+
+      for (title in names(sections)) {
+        write_csv_section(connection, title, sections[[title]])
       }
     }
   )
 
-  output$trial_design <- renderTable({
-    trial_design_table(current_state())
-  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
+  render_result_table <- function(table_function) {
+    renderTable(
+      table_function(current_state()),
+      striped = TRUE,
+      bordered = TRUE,
+      rownames = FALSE
+    )
+  }
 
-  output$accrual_design <- renderTable({
-    accrual_design_table(current_state())
-  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
-
-  output$analysis_schedule <- renderTable({
-    analysis_schedule_table(current_state())
-  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
-
-  output$testing_summary <- renderTable({
-    testing_summary_table(current_state())
-  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
-
-  output$endpoint_testing <- renderTable({
-    endpoint_testing_table(current_state())
-  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
-
-  output$marginal_power_results <- renderTable({
-    marginal_power_results_table(current_state())
-  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
+  output$trial_design <- render_result_table(trial_design_table)
+  output$accrual_design <- render_result_table(accrual_design_table)
+  output$analysis_schedule <- render_result_table(analysis_schedule_table)
+  output$testing_summary <- render_result_table(testing_summary_table)
+  output$endpoint_testing <- render_result_table(endpoint_testing_table)
+  output$marginal_power_results <- render_result_table(
+    marginal_power_results_table
+  )
 
   output$joint_power_results <- renderUI({
     state <- current_state()
