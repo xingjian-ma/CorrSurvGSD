@@ -1,0 +1,58 @@
+---
+title: "Closed-Form Methodology for Correlated Group Sequential Designs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{closed-form-methodology}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(CorrSurvGSD)
+```
+
+## Scope
+
+- `CorrSurvGSD` evaluates correlated PFS and OS group sequential designs under
+the Fleischer model.
+- The implementation follows the modules in `../Blueprint.md`.
+- The pipeline returns theoretical results and can optionally append Monte
+Carlo results without changing the theoretical calculations.
+
+## Pipeline example
+
+The public interface is `run_pipeline()`. It validates the design, derives the
+calendar cutoffs and moments, constructs the joint correlation matrix, and
+calculates power.
+
+```{r pipeline-example}
+state <- run_pipeline(
+  n_T = 100,
+  n_C = 100,
+  d_PFS_vec = c(50),
+  v_vec = c(200 / 12),
+  median_PFS_C = log(2) / 0.15,
+  median_OS_C = log(2) / 0.05,
+  median_PFS_T = log(2) / 0.15,
+  median_OS_T = log(2) / 0.05,
+  alpha_spending_PFS = "OF",
+  alpha_spending_OS = "Pocock"
+)
+
+state$theoretical_results$joint_correlation_matrix
+```
+
+## Reproducibility
+
+- Set `integration_seed` to control numerical multivariate-normal integration.
+- Set `simulation_seed` and `simulation = TRUE` to obtain reproducible Monte
+Carlo summaries.
+- The returned `trial_state` preserves the validated design, options, and
+theoretical results for downstream reporting.

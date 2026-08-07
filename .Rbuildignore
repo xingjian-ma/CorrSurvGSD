@@ -1,1 +1,4 @@
 ^dev$
+^LICENSE\.md$
+^\.gitignore$
+^vignettes/\.gitignore$
