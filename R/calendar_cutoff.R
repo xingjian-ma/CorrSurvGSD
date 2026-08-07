@@ -43,7 +43,7 @@ calendar_cutoff_single <- function(n_T, n_C, Lambda_T, Lambda_C,
                               R, t_vec, p_vec, d_target)
   }
 
-  result <- uniroot(pfs_event_diff, interval = c(lower, upper),
+  result <- stats::uniroot(pfs_event_diff, interval = c(lower, upper),
                     n_T = n_T, n_C = n_C,
                     Lambda_T = Lambda_T, Lambda_C = Lambda_C,
                     R = R, t_vec = t_vec, p_vec = p_vec,

@@ -61,16 +61,16 @@ simulate_trial_statistics <- function(design, n_sim, seed,
       }
       t_start <- if (i == 1) 0 else t_vec[i - 1]
       t_end   <- t_vec[i]
-      U[idx] <- runif(length(idx), t_start, t_end)
+      U[idx] <- stats::runif(length(idx), t_start, t_end)
     }
 
     # --- latent failure times: Fleischer model -----------------------
     t1 <- numeric(n)
     t2 <- numeric(n)
-    t1[group == "T"] <- rexp(n_T, rate = design$lambda_1_T)
-    t1[group == "C"] <- rexp(n_C, rate = design$lambda_1_C)
-    t2[group == "T"] <- rexp(n_T, rate = design$lambda_2_T)
-    t2[group == "C"] <- rexp(n_C, rate = design$lambda_2_C)
+    t1[group == "T"] <- stats::rexp(n_T, rate = design$lambda_1_T)
+    t1[group == "C"] <- stats::rexp(n_C, rate = design$lambda_1_C)
+    t2[group == "T"] <- stats::rexp(n_T, rate = design$lambda_2_T)
+    t2[group == "C"] <- stats::rexp(n_C, rate = design$lambda_2_C)
 
     pfs_time <- pmin(t1, t2)
     os_time  <- t2

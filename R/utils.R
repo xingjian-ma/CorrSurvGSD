@@ -5,8 +5,6 @@
 #
 # Dependencies: checkmate
 
-library(checkmate)
-
 # -----------------------------------------------------------------
 #
 # Args:
@@ -57,13 +55,13 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
                                  n_sim = 500,
                                  display_digits = 4) {
   # --- n_T, n_C: sample sizes (integer, strictly positive) ---
-  assert_count(n_T, positive = TRUE, .var.name = "n_T")
-  assert_count(n_C, positive = TRUE, .var.name = "n_C")
+  checkmate::assert_count(n_T, positive = TRUE, .var.name = "n_T")
+  checkmate::assert_count(n_C, positive = TRUE, .var.name = "n_C")
 
   # --- control medians: required, positive, PFS before OS ---
-  assert_number(median_PFS_C, lower = .Machine$double.eps, finite = TRUE,
+  checkmate::assert_number(median_PFS_C, lower = .Machine$double.eps, finite = TRUE,
                 .var.name = "median_PFS_C")
-  assert_number(median_OS_C, lower = .Machine$double.eps, finite = TRUE,
+  checkmate::assert_number(median_OS_C, lower = .Machine$double.eps, finite = TRUE,
                 .var.name = "median_OS_C")
   if (median_PFS_C >= median_OS_C) {
     stop("median_PFS_C must be less than median_OS_C.")
@@ -84,9 +82,9 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
   }
 
   if (has_treatment_medians) {
-    assert_number(median_PFS_T, lower = .Machine$double.eps, finite = TRUE,
+    checkmate::assert_number(median_PFS_T, lower = .Machine$double.eps, finite = TRUE,
                   .var.name = "median_PFS_T")
-    assert_number(median_OS_T, lower = .Machine$double.eps, finite = TRUE,
+    checkmate::assert_number(median_OS_T, lower = .Machine$double.eps, finite = TRUE,
                   .var.name = "median_OS_T")
     if (median_PFS_T >= median_OS_T) {
       stop("median_PFS_T must be less than median_OS_T.")
@@ -98,10 +96,10 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     HR_PFS     <- Lambda_T / Lambda_C
     HR_OS      <- lambda_2_T / lambda_2_C
   } else {
-    assert_number(HR_PFS, lower = .Machine$double.eps, upper = 1,
+    checkmate::assert_number(HR_PFS, lower = .Machine$double.eps, upper = 1,
                   finite = TRUE,
                   .var.name = "HR_PFS")
-    assert_number(HR_OS, lower = .Machine$double.eps, upper = 1,
+    checkmate::assert_number(HR_OS, lower = .Machine$double.eps, upper = 1,
                   finite = TRUE,
                   .var.name = "HR_OS")
 
@@ -114,7 +112,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
   }
 
   # --- v_vec: per-segment accrual rates ---
-  assert_numeric(v_vec, lower = .Machine$double.eps,
+  checkmate::assert_numeric(v_vec, lower = .Machine$double.eps,
                  any.missing = FALSE,
                  .var.name = "v_vec")
 
@@ -131,7 +129,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     if (is.null(t_vec) || length(t_vec) != s - 1)
       stop("t_vec must have length s-1 = ", s - 1,
            " for ", s, " segments.")
-    assert_numeric(t_vec, lower = .Machine$double.eps,
+    checkmate::assert_numeric(t_vec, lower = .Machine$double.eps,
                    any.missing = FALSE,
                    .var.name = "t_vec")
     if (is.unsorted(t_vec, strictly = TRUE))
@@ -159,10 +157,10 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
 
   # --- d_PFS_vec: target PFS event counts ---
   #     integer, at least 1 look, strictly increasing
-  assert_numeric(d_PFS_vec, lower = 1, any.missing = FALSE,
+  checkmate::assert_numeric(d_PFS_vec, lower = 1, any.missing = FALSE,
                  min.len = 1, sorted = TRUE,
                  .var.name = "d_PFS_vec")
-  assert_integerish(d_PFS_vec, .var.name = "d_PFS_vec")
+  checkmate::assert_integerish(d_PFS_vec, .var.name = "d_PFS_vec")
 
   if (any(duplicated(d_PFS_vec))) {
     stop("Assertion on 'd_PFS_vec' failed: ",
@@ -200,7 +198,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
         any(endpoint_efficacy_looks < 1 | endpoint_efficacy_looks > L) ||
         is.unsorted(endpoint_efficacy_looks, strictly = TRUE) ||
         length(endpoint_efficacy_looks) == 0 ||
-        tail(endpoint_efficacy_looks, 1) != L) {
+        utils::tail(endpoint_efficacy_looks, 1) != L) {
       stop(
         "efficacy_looks must contain strictly increasing looks and include L."
       )
@@ -271,9 +269,9 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
   }
 
   # --- alpha-spending configurations for efficacy boundaries ---
-  assert_choice(alpha_spending_PFS, c("OF", "Pocock", "HSD"),
+  checkmate::assert_choice(alpha_spending_PFS, c("OF", "Pocock", "HSD"),
                 .var.name = "alpha_spending_PFS")
-  assert_choice(alpha_spending_OS, c("OF", "Pocock", "HSD"),
+  checkmate::assert_choice(alpha_spending_OS, c("OF", "Pocock", "HSD"),
                 .var.name = "alpha_spending_OS")
   alpha_spending <- c(PFS = alpha_spending_PFS, OS = alpha_spending_OS)
   alpha_spending_gamma <- list(
@@ -296,30 +294,30 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
   }
 
   # --- alpha: overall alpha level ---
-  assert_number(alpha, lower = 0, upper = 1, finite = TRUE,
+  checkmate::assert_number(alpha, lower = 0, upper = 1, finite = TRUE,
                 .var.name = "alpha")
   if (alpha <= 0 || alpha >= 1) {
     stop("alpha must be strictly between 0 and 1.")
   }
 
   # --- shared numerical options ---
-  assert_number(tol, lower = 0, finite = TRUE,
+  checkmate::assert_number(tol, lower = 0, finite = TRUE,
                 .var.name = "tol")
 
-  assert_count(integration_seed, positive = FALSE,
+  checkmate::assert_count(integration_seed, positive = FALSE,
                .var.name = "integration_seed")
-  assert_count(simulation_seed, positive = FALSE,
+  checkmate::assert_count(simulation_seed, positive = FALSE,
                .var.name = "simulation_seed")
 
-  assert_flag(simulation, .var.name = "simulation")
+  checkmate::assert_flag(simulation, .var.name = "simulation")
   if (simulation) {
-    assert_count(n_sim, positive = TRUE, .var.name = "n_sim")
+    checkmate::assert_count(n_sim, positive = TRUE, .var.name = "n_sim")
     if (n_sim < 2) {
       stop("n_sim must be at least 2 when simulation is enabled.")
     }
   }
 
-  assert_count(display_digits, positive = FALSE,
+  checkmate::assert_count(display_digits, positive = FALSE,
                .var.name = "display_digits")
   if (display_digits > 10) {
     stop("display_digits must be at most 10.")
