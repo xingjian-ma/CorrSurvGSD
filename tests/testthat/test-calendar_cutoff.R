@@ -1,10 +1,6 @@
 # test_calendar_cutoff.R — unit tests for calendar_cutoff.R
 #
-# Run from the package root with: Rscript tests/test_calendar_cutoff.R
-
-source("R/utils.R")
-source("R/calendar_cutoff.R")
-library(testthat)
+# Run with `devtools::test()` from the package root.
 
 # -----------------------------------------------------------------
 # pfs_mean
@@ -58,21 +54,24 @@ test_that("pfs_event_diff is strictly increasing", {
 # -----------------------------------------------------------------
 test_that("calendar_cutoff_single returns a valid root", {
   A_root <- calendar_cutoff_single(100, 100, 0.15, 0.15,
-                                   12, c(6, 12), c(1/12, 1/12), 50, 0)
+                                   12, c(6, 12), c(1/12, 1/12), 50, 0,
+                                   tol = 1e-8)
   residual <- pfs_event_diff(A_root, 100, 100, 0.15, 0.15, 12, c(6, 12), c(1/12, 1/12), 50)
   expect_equal(residual, 0, tolerance = 1e-6)
 })
 
 test_that("calendar_cutoff_single respects A_prev", {
   A_root <- calendar_cutoff_single(100, 100, 0.15, 0.15,
-                                   12, c(6, 12), c(1/12, 1/12), 120, A_prev = 10)
+                                   12, c(6, 12), c(1/12, 1/12), 120,
+                                   A_prev = 10, tol = 1e-8)
   expect_gt(A_root, 10)
 })
 
 test_that("calendar_cutoff_single extends bracket when needed", {
   # small R, large target → bracket needs to grow past 2R
   A_root <- calendar_cutoff_single(200, 200, 0.07, 0.07,
-                                   6, c(3, 6), c(1/6, 1/6), 300, 0)
+                                   6, c(3, 6), c(1/6, 1/6), 300, 0,
+                                   tol = 1e-8)
   expect_gt(A_root, 12)
   residual <- pfs_event_diff(A_root, 200, 200, 0.07, 0.07, 6, c(3, 6), c(1/6, 1/6), 300)
   expect_equal(residual, 0, tolerance = 1e-6)

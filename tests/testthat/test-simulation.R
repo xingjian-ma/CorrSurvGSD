@@ -1,9 +1,6 @@
 # test_simulation.R — unit tests for simulation.R
 #
-# Run from the package root with: Rscript tests/test_simulation.R
-
-source("R/simulation.R")
-library(testthat)
+# Run with `devtools::test()` from the package root.
 
 simulation_design <- list(
   n_T = 100,

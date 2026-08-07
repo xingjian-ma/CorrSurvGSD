@@ -1,9 +1,6 @@
 # test_utils.R — unit tests for utils.R
 #
-# Run from the package root with: Rscript tests/test_utils.R
-
-source("R/utils.R")
-library(testthat)
+# Run with `devtools::test()` from the package root.
 
 test_that("uniform accrual (s=1) validates correctly", {
   state <- validate_trial_input(
@@ -22,15 +19,25 @@ test_that("uniform accrual (s=1) validates correctly", {
   expect_equal(design$L, 1)
   expect_equal(design$R, 12)
   expect_equal(design$Lambda_T, 0.15)
-  expect_identical(design$futility_analysis, c(PFS = FALSE, OS = FALSE))
-  expect_true(all(is.na(design$futility_HR)))
-  expect_identical(design$efficacy_start, c(PFS = 1L, OS = 1L))
+  expect_identical(
+    design$futility_looks,
+    list(PFS = integer(0), OS = integer(0))
+  )
+  expect_identical(
+    design$futility_HR,
+    list(PFS = numeric(0), OS = numeric(0))
+  )
+  expect_identical(
+    design$efficacy_looks,
+    list(PFS = 1L, OS = 1L)
+  )
   expect_identical(
     design$hierarchy_order,
     c(primary = "PFS", secondary = "OS")
   )
   expect_equal(state$options$tol, 1e-8)
-  expect_equal(state$options$seed, 777)
+  expect_equal(state$options$integration_seed, 1)
+  expect_equal(state$options$simulation_seed, 1)
 })
 
 test_that("HR input logic derives treatment hazards correctly", {
@@ -213,7 +220,7 @@ test_that("HR input logic validates derived lambda_1_T", {
   )
 })
 
-test_that("efficacy_start requires futility when it exceeds one", {
+test_that("futility looks cannot include the final look", {
   expect_error(
     validate_trial_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(50, 100),
@@ -224,8 +231,8 @@ test_that("efficacy_start requires futility when it exceeds one", {
       HR_OS = 0.8,
       alpha_spending_PFS = "OF",
       alpha_spending_OS = "Pocock",
-      efficacy_start = c(PFS = 2, OS = 1)
+      futility_looks = list(PFS = 2, OS = integer(0))
     ),
-    "efficacy_start must be 1 when futility is disabled"
+    "futility_looks must contain strictly increasing looks"
   )
 })

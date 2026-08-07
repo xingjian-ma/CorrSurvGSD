@@ -1,13 +1,8 @@
 # test_per_subject_moments.R — unit tests for per_subject_moments.R
 #
-# Run from the package root with: Rscript tests/test_per_subject_moments.R
+# Run with `devtools::test()` from the package root.
 #
 # Setup: piecewise accrual (s=2), multi-look (L=2), asymmetric groups.
-
-source("R/utils.R")
-source("R/calendar_cutoff.R")
-source("R/per_subject_moments.R")
-library(testthat)
 
 # =================================================================
 # Shared setup — piecewise + multi-look + asymmetric

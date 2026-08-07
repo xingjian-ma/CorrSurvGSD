@@ -1,14 +1,8 @@
  # test_joint_cor_matrix.R — unit tests for joint_cor_matrix.R
  #
-# Run from the package root with: Rscript tests/test_joint_cor_matrix.R
- #
- # Setup: piecewise accrual (s=2), multi-look (L=2), asymmetric groups.
-
-source("R/utils.R")
-source("R/calendar_cutoff.R")
-source("R/per_subject_moments.R")
-source("R/joint_cor_matrix.R")
-library(testthat)
+# Run with `devtools::test()` from the package root.
+#
+# Setup: piecewise accrual (s=2), multi-look (L=2), asymmetric groups.
 
 # =================================================================
 # Shared setup — piecewise + multi-look + asymmetric
@@ -32,7 +26,7 @@ state <- per_subject_moments(state)
 state <- joint_cor_matrix(state)
 design <- state$design
 moments <- state$moments
-R_mat <- state$results$joint_correlation_matrix
+R_mat <- state$theoretical_results$joint_correlation_matrix
 
 L      <- design$L
 d_PFS  <- design$d_PFS_vec
@@ -210,7 +204,7 @@ test_that("L=1 returns 2×2 correlation matrix", {
   state1 <- calendar_cutoff(state1)
   state1 <- per_subject_moments(state1)
   state1 <- joint_cor_matrix(state1)
-  R1 <- state1$results$joint_correlation_matrix
+  R1 <- state1$theoretical_results$joint_correlation_matrix
 
   expect_equal(dim(R1), c(2, 2))
   expect_equal(as.vector(diag(R1)), c(1, 1))

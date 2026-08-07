@@ -1,38 +1,26 @@
 # test_closed_gsd_os_and_pfs.R — unit tests for closed_gsd_os_and_pfs.R
 #
-# Run from the package root with: Rscript tests/test_closed_gsd_os_and_pfs.R
+# Run with `devtools::test()` from the package root.
 
-source("R/closed_gsd_os_and_pfs.R")
-library(testthat)
-
-# =================================================================
-# Shared setup — two-look design with a valid joint correlation matrix
-# =================================================================
-
-state <- list(
-  design = list(
-    d_PFS_vec = c(50, 100),
-    d_OS_vec = c(40, 80),
-    alpha = 0.025,
-    alpha_spending_PFS = "OF",
-    alpha_spending_OS = "OF",
-    futility_analysis = c(PFS = TRUE, OS = FALSE),
-    futility_HR = c(PFS = 1.2, OS = NA_real_),
-    efficacy_start = c(PFS = 1, OS = 1),
-    hierarchy_order = c(primary = "PFS", secondary = "OS"),
-    HR_PFS = 0.8,
-    HR_OS = 0.85,
-    r = 1,
-    L = 2
-  ),
-  options = list(seed = 777),
-  results = list(joint_correlation_matrix = rbind(
-    c(1, sqrt(0.5), 0, 0),
-    c(sqrt(0.5), 1, 0, 0),
-    c(0, 0, 1, sqrt(0.5)),
-    c(0, 0, sqrt(0.5), 1)
-  ))
+state <- validate_trial_input(
+  n_T = 100,
+  n_C = 100,
+  d_PFS_vec = c(50, 100),
+  v_vec = c(200 / 12),
+  median_PFS_C = log(2) / 0.25,
+  median_OS_C = log(2) / 0.10,
+  HR_PFS = 0.8,
+  HR_OS = 0.85,
+  alpha_spending_PFS = "OF",
+  alpha_spending_OS = "OF",
+  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
+  futility_looks = list(PFS = 1, OS = integer(0)),
+  futility_HR = list(PFS = 1.2, OS = numeric(0))
 )
+
+state <- calendar_cutoff(state)
+state <- per_subject_moments(state)
+state <- joint_cor_matrix(state)
 
 result <- closed_gsd_os_and_pfs(state)
 
@@ -46,8 +34,10 @@ test_that("build_boundary handles a single active efficacy look", {
     L = 1,
     alpha = 0.025,
     alpha_spending = "OF",
-    efficacy_start = 1,
-    futility_HR = NA_real_,
+    alpha_spending_gamma = NA_real_,
+    efficacy_looks = 1,
+    futility_looks = integer(0),
+    futility_HR = numeric(0),
     r = 1
   )
   expect_equal(
@@ -63,7 +53,9 @@ test_that("build_boundary retains futility before efficacy starts", {
     L = 2,
     alpha = 0.025,
     alpha_spending = "OF",
-    efficacy_start = 2,
+    alpha_spending_gamma = NA_real_,
+    efficacy_looks = 2,
+    futility_looks = 1,
     futility_HR = 1.2,
     r = 1
   )
@@ -72,8 +64,8 @@ test_that("build_boundary retains futility before efficacy starts", {
   expect_true(is.finite(actual[2, "efficacy"]))
 })
 
-test_that("mean_drift_vector matches the closed-form expression", {
-  actual <- mean_drift_vector(0.8, 1, c(50, 100))
+test_that("mean_drift matches the closed-form expression", {
+  actual <- mean_drift(0.8, 1, c(50, 100))
   expected <- -log(0.8) * sqrt(c(50, 100) / 4)
   expect_equal(actual, expected)
 })
@@ -167,25 +159,28 @@ test_that("joint power supports OS-primary hierarchy", {
 # =================================================================
 
 test_that("closed_gsd_os_and_pfs appends all required results", {
-  expected_mean <- c(-log(0.8) * sqrt(c(50, 100) / 4),
-                     -log(0.85) * sqrt(c(40, 80) / 4))
-  expected_futility <- -log(1.2) * sqrt(c(50, 100) / 4)
-
-  expect_equal(dim(result$results$boundary), c(4, 2))
-  expect_true(all(is.finite(result$results$boundary[, "efficacy"])))
-  expect_equal(result$results$joint_mean_vector, expected_mean)
-  expect_equal(
-    unname(result$results$boundary[1:2, "futility"]),
-    expected_futility
+  expected_mean <- c(
+    mean_drift(0.8, 1, result$design$d_PFS_vec),
+    mean_drift(0.85, 1, result$design$d_OS_vec)
   )
-  expect_true(all(is.infinite(result$results$boundary[3:4, "futility"])))
-  expect_equal(dim(result$results$marginal_power), c(4, 2))
-  expect_equal(rownames(result$results$marginal_power),
-               c("PFS_1", "PFS_2", "OS_1", "OS_2"))
-  expect_equal(dim(result$results$joint_power_matrix), c(2, 2))
-  expect_true(is.na(result$results$joint_power_matrix[2, 1]))
+  expected_futility <- -log(1.2) *
+    sqrt(result$design$d_PFS_vec * result$design$r / (1 + result$design$r)^2)
+
+  expect_equal(dim(result$design$boundary), c(4, 2))
+  expect_true(all(is.finite(result$design$boundary[, "efficacy"])))
+  expect_equal(result$theoretical_results$joint_mean_vector, expected_mean)
   expect_equal(
-    result$results$joint_power,
-    sum(result$results$joint_power_matrix, na.rm = TRUE)
+    unname(result$design$boundary[1:2, "futility"]),
+    c(expected_futility[1], -Inf)
+  )
+  expect_true(all(is.infinite(result$design$boundary[3:4, "futility"])))
+  expect_equal(dim(result$theoretical_results$marginal_power), c(4, 2))
+  expect_equal(rownames(result$theoretical_results$marginal_power),
+               c("PFS_1", "PFS_2", "OS_1", "OS_2"))
+  expect_equal(dim(result$theoretical_results$joint_power_matrix), c(2, 2))
+  expect_true(is.na(result$theoretical_results$joint_power_matrix[2, 1]))
+  expect_equal(
+    result$theoretical_results$joint_power,
+    sum(result$theoretical_results$joint_power_matrix, na.rm = TRUE)
   )
 })
