@@ -4,10 +4,96 @@
 \alias{run_pipeline}
 \title{Run the complete correlated PFS and OS group sequential analysis.}
 \usage{
-run_pipeline(...)
+run_pipeline(
+  n_T,
+  n_C,
+  d_PFS_vec,
+  t_vec = NULL,
+  v_vec,
+  median_PFS_C,
+  median_OS_C,
+  median_PFS_T = NULL,
+  median_OS_T = NULL,
+  HR_PFS = NULL,
+  HR_OS = NULL,
+  alpha_spending_PFS,
+  alpha_spending_OS,
+  alpha_spending_gamma_PFS = NA_real_,
+  alpha_spending_gamma_OS = NA_real_,
+  alpha = 0.025,
+  efficacy_looks = NULL,
+  futility_looks = NULL,
+  futility_HR = 1.2,
+  hierarchy_order = c(primary = "PFS", secondary = "OS"),
+  tol = 1e-08,
+  integration_seed = 1,
+  simulation_seed = 1,
+  simulation = FALSE,
+  n_sim = 500,
+  display_digits = 4
+)
 }
 \arguments{
-\item{...}{Arguments forwarded to the trial-design validation stage.}
+\item{n_T}{Positive treatment-arm sample size.}
+
+\item{n_C}{Positive control-arm sample size.}
+
+\item{d_PFS_vec}{Increasing target PFS event counts by look.}
+
+\item{t_vec}{Accrual segment end times. Use \code{NULL} for one segment.}
+
+\item{v_vec}{Accrual rates for the segments.}
+
+\item{median_PFS_C}{Control-arm PFS median time.}
+
+\item{median_OS_C}{Control-arm OS median time.}
+
+\item{median_PFS_T}{Treatment-arm PFS median time. Use this and
+\code{median_OS_T} instead of the treatment-arm hazard ratios.}
+
+\item{median_OS_T}{Treatment-arm OS median time.}
+
+\item{HR_PFS}{Treatment-to-control PFS hazard ratio. Use this and
+\code{HR_OS} instead of the treatment-arm median times.}
+
+\item{HR_OS}{Treatment-to-control OS hazard ratio.}
+
+\item{alpha_spending_PFS}{PFS efficacy alpha-spending family: \code{"OF"},
+\code{"Pocock"}, or \code{"HSD"}.}
+
+\item{alpha_spending_OS}{OS efficacy alpha-spending family: \code{"OF"},
+\code{"Pocock"}, or \code{"HSD"}.}
+
+\item{alpha_spending_gamma_PFS}{HSD gamma parameter for PFS. Required
+only when \code{alpha_spending_PFS = "HSD"}.}
+
+\item{alpha_spending_gamma_OS}{HSD gamma parameter for OS. Required only
+when \code{alpha_spending_OS = "HSD"}.}
+
+\item{alpha}{One-sided type-I error level. Defaults to \code{0.025}.}
+
+\item{efficacy_looks}{Named list of PFS and OS efficacy-look schedules.
+\code{NULL} uses every look for both endpoints.}
+
+\item{futility_looks}{Named list of PFS and OS futility-look schedules.
+\code{NULL} disables futility analysis for both endpoints.}
+
+\item{futility_HR}{Futility HR specification: one scalar, a named PFS/OS
+vector, or a named list of endpoint-specific look vectors.}
+
+\item{hierarchy_order}{Named primary and secondary endpoint order.}
+
+\item{tol}{Numerical root-finding tolerance. Defaults to \code{1e-8}.}
+
+\item{integration_seed}{Random seed for theoretical integration.}
+
+\item{simulation_seed}{Random seed for Monte Carlo simulation.}
+
+\item{simulation}{Whether to run Monte Carlo simulation.}
+
+\item{n_sim}{Number of valid Monte Carlo replicates when simulation is on.}
+
+\item{display_digits}{Number of digits used in displayed result tables.}
 }
 \value{
 A \code{trial_state} object containing the validated design, theoretical

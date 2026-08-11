@@ -22,7 +22,9 @@
 #                         — HSD gamma parameters when applicable
 #   alpha                  — overall alpha level (default 0.025)
 #   efficacy_looks         — named endpoint-level efficacy look schedules
+#                             (NULL uses all looks)
 #   futility_looks         — named endpoint-level futility look schedules
+#                             (NULL disables futility analysis)
 #   futility_HR            — scalar, endpoint vector, or endpoint look vectors
 #   hierarchy_order        — named primary-to-secondary endpoint order
 #   tol                    — shared numerical tolerance setting
@@ -44,8 +46,8 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
                                  alpha_spending_gamma_PFS = NA_real_,
                                  alpha_spending_gamma_OS = NA_real_,
                                  alpha = 0.025,
-                                 efficacy_looks,
-                                 futility_looks,
+                                 efficacy_looks = NULL,
+                                 futility_looks = NULL,
                                  futility_HR = 1.2,
                                  hierarchy_order = c(primary = "PFS", secondary = "OS"),
                                  tol = 1e-8,
@@ -174,10 +176,10 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
 
   # --- endpoint-level futility and efficacy configuration ---
   endpoints <- c("PFS", "OS")
-  if (missing(efficacy_looks)) {
+  if (is.null(efficacy_looks)) {
     efficacy_looks <- list(PFS = seq_len(L), OS = seq_len(L))
   }
-  if (missing(futility_looks)) {
+  if (is.null(futility_looks)) {
     futility_looks <- list(PFS = integer(0), OS = integer(0))
   }
   if (!is.list(efficacy_looks) || length(efficacy_looks) != 2 ||
