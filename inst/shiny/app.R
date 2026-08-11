@@ -1,9 +1,5 @@
 # app.R — minimal interface for the complete analysis pipeline.
 
-if (!requireNamespace("shiny", quietly = TRUE)) {
-  stop("The Shiny application requires the 'shiny' package.")
-}
-
 library(shiny)
 
 parse_numeric_vector <- function(value, name, allow_empty = FALSE) {
