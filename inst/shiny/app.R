@@ -552,11 +552,121 @@ collect_pipeline_arguments <- function(input) {
 }
 
 ui <- fluidPage(
-  titlePanel("Group Sequential PFS and OS Design"),
+  tags$head(
+    tags$style(HTML(
+      "
+      body {
+        background-color: #f5f7fb;
+        color: #243447;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      .app-title {
+        margin: 0 -15px 20px;
+        padding: 24px 30px 20px;
+        background: linear-gradient(135deg, #12355b, #1f6f8b);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(18, 53, 91, 0.18);
+      }
+      .app-title h2 {
+        margin: 0;
+        font-weight: 600;
+      }
+      .well {
+        border: 1px solid #dbe3ee;
+        border-radius: 10px;
+        background-color: #ffffff;
+        box-shadow: 0 2px 8px rgba(36, 52, 71, 0.06);
+      }
+      .sidebar-section-title {
+        margin-top: 20px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #dceaf2;
+        color: #12355b;
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .app-run-button {
+        width: 100%;
+        margin-top: 12px;
+        border: 0;
+        border-radius: 6px;
+        background-color: #1f6f8b;
+        font-weight: 600;
+      }
+      .app-run-button:hover,
+      .app-run-button:focus {
+        background-color: #15556d;
+      }
+      .app-download-button {
+        margin-bottom: 14px;
+      }
+      .app-status {
+        min-height: 36px;
+        margin-bottom: 14px;
+        padding: 9px 13px;
+        border-left: 4px solid #1f6f8b;
+        border-radius: 4px;
+        background-color: #eaf4f7;
+        color: #15556d;
+        font-weight: 600;
+      }
+      .intro-hero {
+        margin-bottom: 22px;
+        padding: 26px 30px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #eaf4f7, #ffffff);
+        border: 1px solid #cfe2eb;
+      }
+      .intro-hero h2 {
+        margin-top: 0;
+        color: #12355b;
+        font-weight: 600;
+      }
+      .intro-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 15px;
+        margin-bottom: 22px;
+      }
+      .intro-card {
+        min-height: 150px;
+        padding: 18px;
+        border: 1px solid #dbe3ee;
+        border-radius: 8px;
+        background-color: #ffffff;
+        box-shadow: 0 2px 6px rgba(36, 52, 71, 0.05);
+      }
+      .intro-card h4 {
+        margin-top: 0;
+        color: #1f6f8b;
+        font-weight: 600;
+      }
+      .intro-step {
+        display: inline-block;
+        width: 26px;
+        height: 26px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background-color: #1f6f8b;
+        color: #ffffff;
+        line-height: 26px;
+        text-align: center;
+        font-weight: 600;
+      }
+      .tab-content {
+        padding-top: 18px;
+      }
+      table {
+        background-color: #ffffff;
+      }
+      "
+    ))
+  ),
+  div(class = "app-title", titlePanel("Group Sequential PFS and OS Design")),
   sidebarLayout(
     sidebarPanel(
       width = 4,
-      tags$h3("Basic parameters"),
+      tags$h3("Basic parameters", class = "sidebar-section-title"),
       numericInput(
         "n_T",
         "Treatment group sample size",
@@ -626,7 +736,7 @@ ui <- fluidPage(
         )
       ),
       tags$hr(),
-      tags$h3("Patient accrual"),
+      tags$h3("Patient accrual", class = "sidebar-section-title"),
       numericInput(
         "accrual_segments",
         "Number of accrual segments",
@@ -637,7 +747,10 @@ ui <- fluidPage(
       tags$label("Accrual configuration", class = "control-label"),
       uiOutput("accrual_configuration"),
       tags$hr(),
-      tags$h3("Sequential design parameters"),
+      tags$h3(
+        "Sequential design parameters",
+        class = "sidebar-section-title"
+      ),
       selectInput(
         "hierarchy_primary",
         "Primary endpoint",
@@ -684,7 +797,7 @@ ui <- fluidPage(
       tags$label("Boundary configuration", class = "control-label"),
       uiOutput("look_selection"),
       tags$hr(),
-      tags$h3("Advanced settings"),
+      tags$h3("Advanced settings", class = "sidebar-section-title"),
       checkboxInput(
         "simulation",
         "Run simulation"
@@ -737,14 +850,85 @@ ui <- fluidPage(
       actionButton(
         "run",
         "Run pipeline",
-        class = "btn-primary"
+        class = "btn-primary app-run-button"
       )
     ),
     mainPanel(
       width = 8,
-      textOutput("status"),
-      downloadButton("download_tables", "Download tables (CSV)"),
+      div(class = "app-status", textOutput("status")),
+      downloadButton(
+        "download_tables",
+        "Download tables (CSV)",
+        class = "app-download-button"
+      ),
       tabsetPanel(
+        id = "main_tabs",
+        tabPanel(
+          "Introduction",
+          div(
+            class = "intro-hero",
+            tags$h2("Closed-form evaluation for PFS and OS designs"),
+            tags$p(
+              "CorrSurvGSD evaluates correlated group sequential designs "
+                , "for progression-free survival (PFS) and overall survival "
+                , "(OS) under the Fleischer model."
+            ),
+            tags$p(
+              "Use the controls on the left to define a trial design, then "
+                , "run the pipeline to obtain calendar cutoffs, testing "
+                , "boundaries, and power summaries."
+            )
+          ),
+          div(
+            class = "intro-grid",
+            div(
+              class = "intro-card",
+              tags$h4("1. Define the design"),
+              tags$p(
+                "Enter sample sizes, control-arm medians, accrual, planned "
+                  , "PFS events, and alpha-spending choices."
+              )
+            ),
+            div(
+              class = "intro-card",
+              tags$h4("2. Specify treatment effects"),
+              tags$p(
+                "Choose either treatment hazard ratios or treatment median "
+                  , "survival times. The two input modes are mutually exclusive."
+              )
+            ),
+            div(
+              class = "intro-card",
+              tags$h4("3. Review the results"),
+              tags$p(
+                "Inspect the design, boundaries, marginal power, and joint "
+                  , "power. Optional simulation results can be compared with "
+                  , "the closed-form calculations."
+              )
+            )
+          ),
+          tags$h3("What the application returns"),
+          tags$ul(
+            tags$li("Expected calendar cutoffs for each analysis look."),
+            tags$li("Z-scale, HR-scale, and one-sided p-scale boundaries."),
+            tags$li("Marginal and gatekeeping joint power summaries."),
+            tags$li("Optional reproducible Monte Carlo summaries."),
+            tags$li("CSV download of the displayed design and results.")
+          ),
+          tags$h3("Analysis workflow"),
+          tags$p(
+            tags$span(class = "intro-step", "1"),
+            "Complete the required inputs in the sidebar."
+          ),
+          tags$p(
+            tags$span(class = "intro-step", "2"),
+            "Select Run pipeline to validate and evaluate the design."
+          ),
+          tags$p(
+            tags$span(class = "intro-step", "3"),
+            "Use Input and design and Results to inspect the output."
+          )
+        ),
         tabPanel(
           "Input and design",
           tags$h3("Trial design"),
