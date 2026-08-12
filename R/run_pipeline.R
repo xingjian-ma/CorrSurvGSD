@@ -1,4 +1,4 @@
-# pipeline.R — end-to-end theoretical and simulation pipeline.
+# run_pipeline.R — end-to-end theoretical and simulation pipeline.
 
 # -----------------------------------------------------------------
 #' Run the complete correlated PFS and OS group sequential analysis.
@@ -116,10 +116,10 @@ run_pipeline <- function(n_T, n_C, d_PFS_vec,
     n_sim = n_sim,
     display_digits = display_digits
   )
-  state <- calendar_cutoff(state)
-  state <- per_subject_moments(state)
-  state <- joint_cor_matrix(state)
-  state <- closed_gsd_os_and_pfs(state)
+  state <- calculate_calendar_cutoffs(state)
+  state <- compute_per_subject_moments(state)
+  state <- construct_joint_correlation_matrix(state)
+  state <- calculate_closed_form_results(state)
 
   if (state$options$simulation) {
     state <- run_simulation(state)

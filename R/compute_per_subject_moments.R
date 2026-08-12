@@ -1,4 +1,4 @@
-# per_subject_moments.R — Module 2: per-subject means (piecewise uniform)
+# compute_per_subject_moments.R — Module 2: per-subject means (piecewise uniform)
 #
 # Piecewise-uniform accrual.  Functions implement the closed-form
 # unconditional means from Blueprint §2.2 and §2.3.
@@ -146,7 +146,7 @@ compute_cross_product_mean <- function(variable1, variable2, A1, A2, B, b,
 # 2.4  Array computation
 # =================================================================
 
-per_subject_moments <- function(state) {
+compute_per_subject_moments <- function(state) {
   design <- state$design
   R     <- design$R
   t_vec <- design$t_vec

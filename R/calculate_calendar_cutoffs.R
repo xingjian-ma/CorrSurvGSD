@@ -1,11 +1,11 @@
-# calendar_cutoff.R — Module 1: calendar cutoffs via root-finding
+# calculate_calendar_cutoffs.R — Module 1: calendar cutoffs via root-finding
 #
 # For each look, solve n_T·m_δ^PFS(T, A_ℓ) + n_C·m_δ^PFS(C, A_ℓ)
 # = d_PFS_ℓ for A_ℓ.  The left-hand side is strictly increasing
 # in A_ℓ, so uniroot converges reliably.
 # m_δ is computed via compute_mean("delta", ...) from Module 2.
 #
-# Dependencies: per_subject_moments.R (compute_mean, find_segment)
+# Dependencies: compute_per_subject_moments.R (compute_mean, find_segment)
 
 # -----------------------------------------------------------------
 # pfs_mean — per-subject PFS event probability for one group
@@ -27,9 +27,9 @@ pfs_event_diff <- function(A, n_T, n_C, Lambda_T, Lambda_C,
 }
 
 # -----------------------------------------------------------------
-# calendar_cutoff_single — solve one A_ℓ
+# calculate_calendar_cutoff — solve one A_ℓ
 
-calendar_cutoff_single <- function(n_T, n_C, Lambda_T, Lambda_C,
+calculate_calendar_cutoff <- function(n_T, n_C, Lambda_T, Lambda_C,
                                    R, t_vec, p_vec, d_target,
                                    A_prev = 0, tol) {
   lower <- A_prev
@@ -52,9 +52,9 @@ calendar_cutoff_single <- function(n_T, n_C, Lambda_T, Lambda_C,
 }
 
 # -----------------------------------------------------------------
-# calendar_cutoff — public entry point
+# calculate_calendar_cutoffs — module entry point
 
-calendar_cutoff <- function(state) {
+calculate_calendar_cutoffs <- function(state) {
   design    <- state$design
   n_T       <- design$n_T
   n_C       <- design$n_C
@@ -71,7 +71,7 @@ calendar_cutoff <- function(state) {
   A_prev <- 0
 
   for (ell in seq_len(L)) {
-    A_ell <- calendar_cutoff_single(
+    A_ell <- calculate_calendar_cutoff(
       n_T, n_C, Lambda_T, Lambda_C,
       R, t_vec, p_vec,
       d_target = d_PFS_vec[ell],

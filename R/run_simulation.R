@@ -1,4 +1,4 @@
-# simulation.R — Module 5: Monte Carlo simulation
+# run_simulation.R — Module 5: Monte Carlo simulation
 #
 # Simulates the Fleischer model under piecewise-uniform accrual with
 # multiple interim looks. The helper functions use explicit inputs.

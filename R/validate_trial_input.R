@@ -1,4 +1,4 @@
-# utils.R — Module 0: input validation and derived parameters
+# validate_trial_input.R — Module 0: input validation and derived parameters
 #
 # validate_trial_input() validates all numeric inputs and returns a
 # `state` list with element `design` containing derived quantities.

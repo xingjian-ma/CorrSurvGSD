@@ -1,4 +1,4 @@
-# joint_cor_matrix.R — Module 3: (2L)×(2L) joint correlation matrix
+# construct_joint_correlation_matrix.R — Module 3: (2L)×(2L) joint correlation matrix
 #
 # §3.1  Delta method: marginal variance Var(θ̂_ℓ^k) and cross-endpoint
 #       covariance Cov(θ̂_ℓ₁^PFS, θ̂_ℓ₂^OS), summed over T and C groups.
@@ -7,7 +7,7 @@
 #         - Cross-endpoint:  Cov / √(Var_PFS · Var_OS)
 #       d_OS_vec is computed from moments and written into design.
 #
-# Dependencies: per_subject_moments.R (moments list)
+# Dependencies: compute_per_subject_moments.R (moments list)
 
 # -----------------------------------------------------------------
  # §3.1.1  marginal_variances — summed over T and C groups via delta
@@ -77,16 +77,16 @@ cross_endpoint_covariances <- function(state) {
 }
 
  # -----------------------------------------------------------------
- # §3.2  joint_cor_matrix — assemble (2L)×(2L) correlation matrix
+# §3.2  construct_joint_correlation_matrix — assemble (2L)×(2L) correlation matrix
 #
 # Args:
 #   design  — trial design list from utils → calendar_cutoff pipeline
-#   moments — per-subject moments list from per_subject_moments()
+#   moments — per-subject moments list from compute_per_subject_moments()
 #
 # Returns:
  #   (2L)×(2L) correlation matrix, dimnames PFS_1…PFS_L, OS_1…OS_L
 
-joint_cor_matrix <- function(state) {
+construct_joint_correlation_matrix <- function(state) {
   L          <- state$design$L
   d_PFS_vec  <- state$design$d_PFS_vec
   d_OS_vec   <- state$design$d_OS_vec

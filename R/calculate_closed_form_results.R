@@ -1,7 +1,7 @@
-# closed_gsd_os_and_pfs.R — Module 4: power calculations
+# calculate_closed_form_results.R — Module 4: power calculations
 #
 # The helper functions in this file use explicit numerical inputs.
-# closed_gsd_os_and_pfs() is the Module 4 state handler and writes the
+# calculate_closed_form_results() is the Module 4 state handler and writes the
 # resulting boundaries, mean vector, marginal power, and joint power.
 #
 # Dependencies: gsDesign, mvtnorm
@@ -224,13 +224,13 @@ calculate_joint_power <- function(joint_mean_vector,
 }
 
 # -----------------------------------------------------------------
-# closed_gsd_os_and_pfs — Module 4 state handler
+# calculate_closed_form_results — Module 4 state handler
 #
 # Expects the completed outputs of Modules 1 to 3. It calculates only
 # power-related quantities. Boundaries are appended to state$design,
 # while power results are appended to state$theoretical_results.
 
-closed_gsd_os_and_pfs <- function(state) {
+calculate_closed_form_results <- function(state) {
   design <- state$design
   correlation_matrix <-
     state$theoretical_results$joint_correlation_matrix
