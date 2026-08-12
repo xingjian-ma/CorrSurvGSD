@@ -1,14 +1,8 @@
-# calculate_calendar_cutoffs.R — Module 1: calendar cutoffs via root-finding
+# calculate_calendar_cutoffs.R — calendar cutoffs via root-finding.
 #
-# For each look, solve n_T·m_δ^PFS(T, A_ℓ) + n_C·m_δ^PFS(C, A_ℓ)
-# = d_PFS_ℓ for A_ℓ.  The left-hand side is strictly increasing
-# in A_ℓ, so uniroot converges reliably.
-# m_δ is computed via compute_mean("delta", ...) from Module 2.
-#
-# Dependencies: compute_per_subject_moments.R (compute_mean, find_segment)
+# Dependencies: compute_per_subject_moments.R.
 
-# -----------------------------------------------------------------
-# pfs_mean — per-subject PFS event probability for one group
+# Calculate the PFS event probability for one group.
 
 pfs_mean <- function(A, R, t_vec, p_vec, Lambda) {
   B <- min(A, R)
@@ -16,8 +10,7 @@ pfs_mean <- function(A, R, t_vec, p_vec, Lambda) {
   compute_mean("delta", A, B, b, Lambda, t_vec, p_vec)
 }
 
-# -----------------------------------------------------------------
-# pfs_event_diff — target function f(A) = LHS − d_target for uniroot
+# Calculate the difference between expected and target PFS events.
 
 pfs_event_diff <- function(A, n_T, n_C, Lambda_T, Lambda_C,
                            R, t_vec, p_vec, d_target) {
@@ -26,8 +19,7 @@ pfs_event_diff <- function(A, n_T, n_C, Lambda_T, Lambda_C,
   lhs - d_target
 }
 
-# -----------------------------------------------------------------
-# calculate_calendar_cutoff — solve one A_ℓ
+# Solve for one calendar cutoff.
 
 calculate_calendar_cutoff <- function(n_T, n_C, Lambda_T, Lambda_C,
                                    R, t_vec, p_vec, d_target,
@@ -51,8 +43,7 @@ calculate_calendar_cutoff <- function(n_T, n_C, Lambda_T, Lambda_C,
   result$root
 }
 
-# -----------------------------------------------------------------
-# calculate_calendar_cutoffs — module entry point
+# Calculate all calendar cutoffs.
 
 calculate_calendar_cutoffs <- function(state) {
   design    <- state$design

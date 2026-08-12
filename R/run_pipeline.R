@@ -1,6 +1,5 @@
 # run_pipeline.R — end-to-end theoretical and simulation pipeline.
 
-# -----------------------------------------------------------------
 #' Run the complete correlated PFS and OS group sequential analysis.
 #'
 #' The pipeline validates the trial design, computes calendar cutoffs and
@@ -38,8 +37,8 @@
 #' @param hierarchy_order Named primary and secondary endpoint order.
 #' @param tol Numerical root-finding tolerance. Defaults to `1e-8`.
 #' @param integration_seed Random seed for theoretical integration.
-#' @param simulation_seed Random seed for Monte Carlo simulation.
 #' @param simulation Whether to run Monte Carlo simulation.
+#' @param simulation_seed Random seed for Monte Carlo simulation.
 #' @param n_sim Number of valid Monte Carlo replicates when simulation is on.
 #' @param display_digits Number of digits used in displayed result tables.
 #'
@@ -84,8 +83,8 @@ run_pipeline <- function(n_T, n_C, d_PFS_vec,
                          ),
                          tol = 1e-8,
                          integration_seed = 1,
-                         simulation_seed = 1,
                          simulation = FALSE,
+                         simulation_seed = 1,
                          n_sim = 500,
                          display_digits = 4) {
   state <- validate_trial_input(
@@ -111,8 +110,8 @@ run_pipeline <- function(n_T, n_C, d_PFS_vec,
     hierarchy_order = hierarchy_order,
     tol = tol,
     integration_seed = integration_seed,
-    simulation_seed = simulation_seed,
     simulation = simulation,
+    simulation_seed = simulation_seed,
     n_sim = n_sim,
     display_digits = display_digits
   )

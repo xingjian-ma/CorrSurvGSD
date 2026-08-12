@@ -1,19 +1,8 @@
-# construct_joint_correlation_matrix.R — Module 3: (2L)×(2L) joint correlation matrix
+# construct_joint_correlation_matrix.R — joint correlation matrix.
 #
-# §3.1  Delta method: marginal variance Var(θ̂_ℓ^k) and cross-endpoint
-#       covariance Cov(θ̂_ℓ₁^PFS, θ̂_ℓ₂^OS), summed over T and C groups.
-# §3.2  Assemble correlation matrix:
-#         - Within-endpoint: canonical G-S form √(d_min / d_max)
-#         - Cross-endpoint:  Cov / √(Var_PFS · Var_OS)
-#       d_OS_vec is computed from moments and written into design.
-#
-# Dependencies: compute_per_subject_moments.R (moments list)
+# Dependencies: compute_per_subject_moments.R.
 
-# -----------------------------------------------------------------
- # §3.1.1  marginal_variances — summed over T and C groups via delta
- #         method.  ∇g = (1/m_δ, -1/m_T̃)^T, Σ from single_look_cov.
- #
- # Returns: log_HR_var array, dims (endpoint, look)
+# Calculate marginal log-HR variances.
 
 marginal_variances <- function(state) {
   n_T <- state$design$n_T
@@ -43,11 +32,7 @@ marginal_variances <- function(state) {
   log_HR_var
 }
 
-# -----------------------------------------------------------------
-# §3.1.2  cross_endpoint_covariances — summed over T and C groups
-#         via delta method.  ∇g_PFS^T Σ_cross ∇g_OS.
-#
-# Returns: log_HR_cov matrix, dims (PFS_look, OS_look)
+# Calculate PFS/OS cross-endpoint log-HR covariances.
 
 cross_endpoint_covariances <- function(state) {
   n_T <- state$design$n_T
@@ -76,50 +61,35 @@ cross_endpoint_covariances <- function(state) {
   log_HR_cov
 }
 
- # -----------------------------------------------------------------
-# §3.2  construct_joint_correlation_matrix — assemble (2L)×(2L) correlation matrix
-#
-# Args:
-#   design  — trial design list from utils → calendar_cutoff pipeline
-#   moments — per-subject moments list from compute_per_subject_moments()
-#
-# Returns:
- #   (2L)×(2L) correlation matrix, dimnames PFS_1…PFS_L, OS_1…OS_L
+# Assemble the joint correlation matrix.
 
 construct_joint_correlation_matrix <- function(state) {
   L          <- state$design$L
   d_PFS_vec  <- state$design$d_PFS_vec
   d_OS_vec   <- state$design$d_OS_vec
 
-  # --- §3.1.1  marginal variances (summed over groups) --------------
   log_HR_var <- marginal_variances(state)
 
-  # --- §3.1.2  cross-endpoint covariances (summed over groups) ------
   log_HR_cov <- cross_endpoint_covariances(state)
 
-  # --- §3.2  assemble (2L)×(2L) correlation matrix ------------------
   R_mat <- diag(1, 2 * L)
   nm <- c(paste0("PFS_", seq_len(L)), paste0("OS_", seq_len(L)))
   rownames(R_mat) <- colnames(R_mat) <- nm
 
-  # §3.2.1  within-endpoint: canonical G-S form
   for (ell1 in seq_len(L)) {
     for (ell2 in seq_len(L)) {
       if (ell1 > ell2) next
 
-      # PFS block (upper-left)
       rho_pfs <- sqrt(d_PFS_vec[ell1] / d_PFS_vec[ell2])
       R_mat[ell1, ell2] <- rho_pfs
       R_mat[ell2, ell1] <- rho_pfs
 
-      # OS block (lower-right)
       rho_os <- sqrt(d_OS_vec[ell1] / d_OS_vec[ell2])
       R_mat[L + ell1, L + ell2] <- rho_os
       R_mat[L + ell2, L + ell1] <- rho_os
     }
   }
 
-  # §3.2.2  cross-endpoint: delta-method correlation
   for (ell1 in seq_len(L)) {
     for (ell2 in seq_len(L)) {
       cov_val <- log_HR_cov[ell1, ell2]

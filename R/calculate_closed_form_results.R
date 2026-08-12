@@ -1,20 +1,14 @@
-# calculate_closed_form_results.R — Module 4: power calculations
+# calculate_closed_form_results.R — closed-form power calculations.
 #
-# The helper functions in this file use explicit numerical inputs.
-# calculate_closed_form_results() is the Module 4 state handler and writes the
-# resulting boundaries, mean vector, marginal power, and joint power.
-#
-# Dependencies: gsDesign, mvtnorm
+# Dependencies: gsDesign, mvtnorm.
 
-# -----------------------------------------------------------------
-# mean_drift — mean Z-score drift for one endpoint
+# Calculate the mean Z-score drift for one endpoint.
 
 mean_drift <- function(HR, r, d_vec) {
   -log(HR) * sqrt(d_vec * r / (1 + r)^2)
 }
 
-# -----------------------------------------------------------------
-# build_boundary — futility and efficacy boundaries for one endpoint
+# Calculate futility and efficacy boundaries for one endpoint.
 
 build_boundary <- function(d_vec, L, alpha, alpha_spending,
                            alpha_spending_gamma, efficacy_looks,
@@ -58,8 +52,7 @@ build_boundary <- function(d_vec, L, alpha, alpha_spending,
   boundary
 }
 
-# -----------------------------------------------------------------
-# convert_boundary_scales — convert finite Z boundaries to HR and p scales
+# Convert finite Z boundaries to HR and p scales.
 
 convert_boundary_scales <- function(boundary, d_vec, r) {
 
@@ -92,8 +85,7 @@ convert_boundary_scales <- function(boundary, d_vec, r) {
   list(HR = boundary_HR, p = boundary_p)
 }
 
-# -----------------------------------------------------------------
-# first_crossing_bounds — bounds for first efficacy crossing at look
+# Construct bounds for a first efficacy crossing.
 
 first_crossing_bounds <- function(boundary, look, gate_start = 1) {
   lower <- rep(-Inf, look)
@@ -112,8 +104,7 @@ first_crossing_bounds <- function(boundary, look, gate_start = 1) {
   list(lower = lower, upper = upper)
 }
 
-# -----------------------------------------------------------------
-# calculate_marginal_power — incremental and cumulative endpoint power
+# Calculate incremental and cumulative marginal power.
 
 calculate_marginal_power <- function(mean_vector,
                                      correlation_matrix,
@@ -156,12 +147,9 @@ calculate_marginal_power <- function(mean_vector,
   power
 }
 
-# -----------------------------------------------------------------
-# calculate_joint_power — generic primary-to-secondary joint power
+# Calculate primary-to-secondary joint power.
 #
-# Returns an L by L upper-triangular matrix. Rows identify the primary
-# endpoint efficacy look and columns identify the secondary endpoint
-# efficacy look. Entries below the diagonal are NA.
+# Returns an upper-triangular matrix of crossing probabilities.
 
 calculate_joint_power <- function(joint_mean_vector,
                                   joint_correlation_matrix,
@@ -223,12 +211,7 @@ calculate_joint_power <- function(joint_mean_vector,
   joint_power_matrix
 }
 
-# -----------------------------------------------------------------
-# calculate_closed_form_results — Module 4 state handler
-#
-# Expects the completed outputs of Modules 1 to 3. It calculates only
-# power-related quantities. Boundaries are appended to state$design,
-# while power results are appended to state$theoretical_results.
+# Append boundaries and power results to the analysis state.
 
 calculate_closed_form_results <- function(state) {
   design <- state$design

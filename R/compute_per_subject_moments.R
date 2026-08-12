@@ -1,13 +1,8 @@
-# compute_per_subject_moments.R — Module 2: per-subject means (piecewise uniform)
+# compute_per_subject_moments.R — per-subject moments.
 #
-# Piecewise-uniform accrual.  Functions implement the closed-form
-# unconditional means from Blueprint §2.2 and §2.3.
-#
-# Dependencies: none (pure arithmetic)
+# These helpers use piecewise-uniform accrual and closed-form expectations.
 
-# =================================================================
-# 2.1  Segment integrals (i₁…i₅) and cumulative sums (I₁…I₅)
-# =================================================================
+# Segment integrals and cumulative sums.
 
 i_1 <- function(tau1, tau2, A, mu) {
   tau2 - tau1
@@ -52,9 +47,7 @@ I_3 <- function(A, B, b, t_vec, p_vec)        I(i_3, A, B, b, 0, t_vec, p_vec)
 I_4 <- function(A, B, b, mu, t_vec, p_vec)    I(i_4, A, B, b, mu, t_vec, p_vec)
 I_5 <- function(A, B, b, mu, t_vec, p_vec)    I(i_5, A, B, b, mu, t_vec, p_vec)
 
-# =================================================================
-# 2.2  Single-endpoint mean
-# =================================================================
+# Single-endpoint means.
 
 compute_mean <- function(variable, A, B, b, mu, t_vec, p_vec) {
   if (variable == "delta") {
@@ -65,9 +58,7 @@ compute_mean <- function(variable, A, B, b, mu, t_vec, p_vec) {
 
 }
 
-# =================================================================
-# 2.2  Single-look product mean
-# =================================================================
+# Single-look product means.
 
 compute_single_product_mean <- function(variable1, variable2, A, B, b, mu, t_vec, p_vec) {
   if (variable1 == "delta" && variable2 == "delta") {
@@ -82,9 +73,7 @@ compute_single_product_mean <- function(variable1, variable2, A, B, b, mu, t_vec
   }
 }
 
-# =================================================================
-# 2.3  Cross-look product mean
-# =================================================================
+# Cross-look product means.
 
 compute_cross_product_mean <- function(variable1, variable2, A1, A2, B, b,
                                       A_star, Lambda, lambda_1, lambda_2,
@@ -142,9 +131,7 @@ compute_cross_product_mean <- function(variable1, variable2, A1, A2, B, b,
   }
 }
 
-# =================================================================
-# 2.4  Array computation
-# =================================================================
+# Assemble the moment arrays.
 
 compute_per_subject_moments <- function(state) {
   design <- state$design

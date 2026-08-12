@@ -1,41 +1,6 @@
-# validate_trial_input.R — Module 0: input validation and derived parameters
+# validate_trial_input.R — input validation and derived parameters.
 #
-# validate_trial_input() validates all numeric inputs and returns a
-# `state` list with element `design` containing derived quantities.
-#
-# Dependencies: checkmate
-
-# -----------------------------------------------------------------
-#
-# Args:
-#   n_T         — treatment arm sample size
-#   n_C         — control arm sample size
-#   d_PFS_vec   — target PFS event counts per look
-#   t_vec       — segment start nodes (NULL for single-segment s=1)
-#   v_vec       — accrual rates per segment
-#   median_PFS_C, median_OS_C  — control arm median times
-#   median_PFS_T, median_OS_T  — treatment arm median times
-#   HR_PFS, HR_OS              — hazard ratio under H1 (PFS, OS)
-#   alpha_spending_PFS     — spending function, one of "OF" "Pocock" "HSD"
-#   alpha_spending_OS      — spending function, one of "OF" "Pocock" "HSD"
-#   alpha_spending_gamma_PFS, alpha_spending_gamma_OS
-#                         — HSD gamma parameters when applicable
-#   alpha                  — overall alpha level (default 0.025)
-#   efficacy_looks         — named endpoint-level efficacy look schedules
-#                             (NULL uses all looks)
-#   futility_looks         — named endpoint-level futility look schedules
-#                             (NULL disables futility analysis)
-#   futility_HR            — scalar, endpoint vector, or endpoint look vectors
-#   hierarchy_order        — named primary-to-secondary endpoint order
-#   tol                    — shared numerical tolerance setting
-#   integration_seed       — random seed for theoretical integration
-#   simulation_seed        — random seed for Monte Carlo simulation
-#   simulation             — whether to run Module 5 simulation
-#   n_sim                  — number of valid simulation replicates
-#   display_digits         — decimal places shown in Results tables
-#
-# Returns a list with class "trial_state", containing elements
-# `design` and `options`.
+# Returns a `trial_state` list with `design` and `options`.
 validate_trial_input <- function(n_T, n_C, d_PFS_vec,
                                  t_vec = NULL, v_vec,
                                  median_PFS_C, median_OS_C,
@@ -56,11 +21,11 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
                                  simulation = FALSE,
                                  n_sim = 500,
                                  display_digits = 4) {
-  # --- n_T, n_C: sample sizes (integer, strictly positive) ---
+  # Validate sample sizes.
   checkmate::assert_count(n_T, positive = TRUE, .var.name = "n_T")
   checkmate::assert_count(n_C, positive = TRUE, .var.name = "n_C")
 
-  # --- control medians: required, positive, PFS before OS ---
+  # Validate control-arm medians and derive control hazards.
   checkmate::assert_number(median_PFS_C, lower = .Machine$double.eps, finite = TRUE,
                 .var.name = "median_PFS_C")
   checkmate::assert_number(median_OS_C, lower = .Machine$double.eps, finite = TRUE,
@@ -113,13 +78,12 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     }
   }
 
-  # --- v_vec: per-segment accrual rates ---
+  # Validate accrual rates.
   checkmate::assert_numeric(v_vec, lower = .Machine$double.eps,
                  any.missing = FALSE,
                  .var.name = "v_vec")
 
-  # --- t_vec: segment start nodes t_1,...,t_{s-1} ---
-  #                             (NULL for single-segment s=1)
+  # Validate accrual segment boundaries.
   n     <- n_T + n_C
   s     <- length(v_vec)
 
@@ -149,16 +113,15 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
 
   t_vec <- cumsum(R_vec)
 
-  # --- derived accrual quantities ---
+  # Derive accrual quantities.
   R     <- sum(R_vec)
   p_vec <- v_vec / n
 
-  # --- constraint check ---
+  # Check the total accrued sample size.
   if (abs(sum(v_vec * R_vec) - n) > 1e-8 * n)
     stop("sum(v_i * R_i) must equal n (total sample size).")
 
-  # --- d_PFS_vec: target PFS event counts ---
-  #     integer, at least 1 look, strictly increasing
+  # Validate target PFS event counts.
   checkmate::assert_numeric(d_PFS_vec, lower = 1, any.missing = FALSE,
                  min.len = 1, sorted = TRUE,
                  .var.name = "d_PFS_vec")
@@ -174,7 +137,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
 
   L <- length(d_PFS_vec)
 
-  # --- endpoint-level futility and efficacy configuration ---
+  # Validate endpoint look schedules.
   endpoints <- c("PFS", "OS")
   if (is.null(efficacy_looks)) {
     efficacy_looks <- list(PFS = seq_len(L), OS = seq_len(L))
@@ -222,7 +185,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     futility_looks[[endpoint]] <- as.integer(endpoint_futility_looks)
   }
 
-  # --- futility_HR: validate length before validating each form ---
+  # Validate and expand futility hazard ratios.
   if (is.numeric(futility_HR) && length(futility_HR) == 1) {
     if (is.na(futility_HR) || !is.finite(futility_HR) ||
         futility_HR <= 1) {
@@ -270,7 +233,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     stop("hierarchy_order must name primary and secondary, with values PFS and OS.")
   }
 
-  # --- alpha-spending configurations for efficacy boundaries ---
+  # Validate alpha-spending configurations.
   checkmate::assert_choice(alpha_spending_PFS, c("OF", "Pocock", "HSD"),
                 .var.name = "alpha_spending_PFS")
   checkmate::assert_choice(alpha_spending_OS, c("OF", "Pocock", "HSD"),
@@ -295,14 +258,14 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     }
   }
 
-  # --- alpha: overall alpha level ---
+  # Validate the type-I error level.
   checkmate::assert_number(alpha, lower = 0, upper = 1, finite = TRUE,
                 .var.name = "alpha")
   if (alpha <= 0 || alpha >= 1) {
     stop("alpha must be strictly between 0 and 1.")
   }
 
-  # --- shared numerical options ---
+  # Validate numerical and simulation options.
   checkmate::assert_number(tol, lower = 0, finite = TRUE,
                 .var.name = "tol")
 
@@ -325,7 +288,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
     stop("display_digits must be at most 10.")
   }
 
-  # --- assemble and return ---
+  # Assemble the validated state.
   r          <- n_T / n_C
 
   state <- list(

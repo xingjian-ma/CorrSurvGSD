@@ -1,21 +1,8 @@
-# run_simulation.R — Module 5: Monte Carlo simulation
+# run_simulation.R — Monte Carlo simulation.
 #
-# Simulates the Fleischer model under piecewise-uniform accrual with
-# multiple interim looks. The helper functions use explicit inputs.
-# run_simulation() is the Module 5 state handler.
-#
-# Dependencies: completed outputs of Modules 0 to 4
+# Simulate the Fleischer model under piecewise-uniform accrual.
 
-# -----------------------------------------------------------------
-# simulate_trial_statistics — run Monte Carlo replicates
-#
-# Args:
-#   design      — completed trial design list
-#   n_sim       — number of valid simulation replicates
-#   seed        — random seed for reproducibility
-#   max_attempts — maximum total replicate-generation attempts
-#
-# Returns an n_sim by 2L matrix of valid Z-score statistics.
+# Generate valid trial-level Z statistics.
 
 simulate_trial_statistics <- function(design, n_sim, seed,
                                       max_attempts = 10 * n_sim) {
@@ -50,7 +37,7 @@ simulate_trial_statistics <- function(design, n_sim, seed,
   while (n_valid < n_sim && attempts < max_attempts) {
     attempts <- attempts + 1
 
-    # --- enrollment times: piecewise uniform -------------------------
+    # Generate enrollment times within the selected accrual segments.
     seg_probs <- v_vec * R_vec / n
     seg <- sample(seq_len(s), n, replace = TRUE, prob = seg_probs)
     U <- numeric(n)
@@ -64,7 +51,7 @@ simulate_trial_statistics <- function(design, n_sim, seed,
       U[idx] <- stats::runif(length(idx), t_start, t_end)
     }
 
-    # --- latent failure times: Fleischer model -----------------------
+    # Generate latent PFS and OS event times.
     t1 <- numeric(n)
     t2 <- numeric(n)
     t1[group == "T"] <- stats::rexp(n_T, rate = design$lambda_1_T)
@@ -75,11 +62,11 @@ simulate_trial_statistics <- function(design, n_sim, seed,
     pfs_time <- pmin(t1, t2)
     os_time  <- t2
 
-    # --- event-driven calendar cutoffs -------------------------------
+    # Determine simulated calendar cutoffs from PFS events.
     cal_pfs <- U + pfs_time
     A_sim   <- sort(cal_pfs)[d_PFS]
 
-    # --- per-look Z-scores -------------------------------------------
+    # Calculate Z statistics at each look.
     z <- numeric(2 * L)
     valid <- TRUE
 
@@ -130,8 +117,7 @@ simulate_trial_statistics <- function(design, n_sim, seed,
   z_mat
 }
 
-# -----------------------------------------------------------------
-# first_efficacy_crossing — first allowed efficacy crossing
+# Find the first allowed efficacy crossing.
 
 first_efficacy_crossing <- function(z_vec, boundary, gate_start = 1) {
   for (ell in seq_along(z_vec)) {
@@ -147,8 +133,7 @@ first_efficacy_crossing <- function(z_vec, boundary, gate_start = 1) {
   NA_integer_
 }
 
-# -----------------------------------------------------------------
-# summarize_simulation_power — marginal and gatekeeping joint power
+# Summarize marginal and gatekeeping joint power.
 
 summarize_simulation_power <- function(z, boundary, hierarchy_order) {
   L <- ncol(z) / 2
@@ -227,8 +212,7 @@ summarize_simulation_power <- function(z, boundary, hierarchy_order) {
   )
 }
 
-# -----------------------------------------------------------------
-# run_simulation — Module 5 state handler
+# Append simulation results to the analysis state.
 
 run_simulation <- function(state) {
   design <- state$design
