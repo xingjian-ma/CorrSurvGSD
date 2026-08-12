@@ -39,6 +39,8 @@ base_args <- list(
   HR_OS = 0.8,
   alpha_spending_PFS = "OF",
   alpha_spending_OS = "Pocock",
+  efficacy_looks = list(PFS = c(1, 2, 3), OS = c(1, 2, 3)),
+  futility_looks = list(PFS = integer(0), OS = integer(0)),
   integration_seed = 777,
   simulation_seed = 777,
   n_sim = 5000

@@ -21,8 +21,8 @@ run_pipeline(
   alpha_spending_gamma_PFS = NA_real_,
   alpha_spending_gamma_OS = NA_real_,
   alpha = 0.025,
-  efficacy_looks = NULL,
-  futility_looks = NULL,
+  efficacy_looks,
+  futility_looks,
   futility_HR = 1.2,
   hierarchy_order = c(primary = "PFS", secondary = "OS"),
   tol = 1e-08,
@@ -40,7 +40,7 @@ run_pipeline(
 
 \item{d_PFS_vec}{Increasing target PFS event counts by look.}
 
-\item{t_vec}{Accrual segment end times. Use \code{NULL} for one segment.}
+\item{t_vec}{Accrual segment end times. Defaults to \code{NULL} for one segment.}
 
 \item{v_vec}{Accrual rates for the segments.}
 
@@ -48,15 +48,15 @@ run_pipeline(
 
 \item{median_OS_C}{Control-arm OS median time.}
 
-\item{median_PFS_T}{Treatment-arm PFS median time. Use this and
-\code{median_OS_T} instead of the treatment-arm hazard ratios.}
+\item{median_PFS_T}{Treatment-arm PFS median time. Defaults to \code{NULL}.
+Provide this and \code{median_OS_T} to use treatment-arm median inputs.}
 
-\item{median_OS_T}{Treatment-arm OS median time.}
+\item{median_OS_T}{Treatment-arm OS median time. Defaults to \code{NULL}.}
 
-\item{HR_PFS}{Treatment-to-control PFS hazard ratio. Use this and
-\code{HR_OS} instead of the treatment-arm median times.}
+\item{HR_PFS}{Treatment-to-control PFS hazard ratio. Defaults to \code{NULL}.
+Provide this and \code{HR_OS} to use hazard-ratio inputs.}
 
-\item{HR_OS}{Treatment-to-control OS hazard ratio.}
+\item{HR_OS}{Treatment-to-control OS hazard ratio. Defaults to \code{NULL}.}
 
 \item{alpha_spending_PFS}{PFS efficacy alpha-spending family: \code{"OF"},
 \code{"Pocock"}, or \code{"HSD"}.}
@@ -64,36 +64,44 @@ run_pipeline(
 \item{alpha_spending_OS}{OS efficacy alpha-spending family: \code{"OF"},
 \code{"Pocock"}, or \code{"HSD"}.}
 
-\item{alpha_spending_gamma_PFS}{HSD gamma parameter for PFS. Required
-only when \code{alpha_spending_PFS = "HSD"}.}
+\item{alpha_spending_gamma_PFS}{HSD gamma parameter for PFS. Defaults to
+\code{NA_real_}; a finite value is required when
+\code{alpha_spending_PFS = "HSD"}.}
 
-\item{alpha_spending_gamma_OS}{HSD gamma parameter for OS. Required only
-when \code{alpha_spending_OS = "HSD"}.}
+\item{alpha_spending_gamma_OS}{HSD gamma parameter for OS. Defaults to
+\code{NA_real_}; a finite value is required when
+\code{alpha_spending_OS = "HSD"}.}
 
 \item{alpha}{One-sided type-I error level. Defaults to \code{0.025}.}
 
-\item{efficacy_looks}{Named list of PFS and OS efficacy-look schedules.
-\code{NULL} uses every look for both endpoints.}
+\item{efficacy_looks}{Required named list of PFS and OS efficacy-look
+schedules.}
 
-\item{futility_looks}{Named list of PFS and OS futility-look schedules.
-\code{NULL} disables futility analysis for both endpoints.}
+\item{futility_looks}{Required named list of PFS and OS futility-look
+schedules. Use empty vectors to disable futility analysis for an endpoint.}
 
-\item{futility_HR}{Futility HR specification: one scalar, a named PFS/OS
-vector, or a named list of endpoint-specific look vectors.}
+\item{futility_HR}{Futility HR specification. Defaults to \code{1.2}. This can
+be one scalar, a named PFS/OS vector, or a named list of endpoint-specific
+look vectors.}
 
-\item{hierarchy_order}{Named primary and secondary endpoint order.}
+\item{hierarchy_order}{Named primary and secondary endpoint order. Defaults
+to \code{c(primary = "PFS", secondary = "OS")}.}
 
 \item{tol}{Numerical root-finding tolerance. Defaults to \code{1e-8}.}
 
-\item{integration_seed}{Random seed for theoretical integration.}
+\item{integration_seed}{Random seed for theoretical integration. Defaults
+to \code{1}.}
 
-\item{simulation}{Whether to run Monte Carlo simulation.}
+\item{simulation}{Whether to run Monte Carlo simulation. Defaults to \code{FALSE}.}
 
-\item{simulation_seed}{Random seed for Monte Carlo simulation.}
+\item{simulation_seed}{Random seed for Monte Carlo simulation. Defaults to
+\code{1}.}
 
-\item{n_sim}{Number of valid Monte Carlo replicates when simulation is on.}
+\item{n_sim}{Number of valid Monte Carlo replicates when simulation is on.
+Defaults to \code{500}.}
 
-\item{display_digits}{Number of digits used in displayed result tables.}
+\item{display_digits}{Number of digits used in displayed result tables.
+Defaults to \code{4}.}
 }
 \value{
 A \code{trial_state} object containing the validated design, theoretical
@@ -116,7 +124,9 @@ result <- run_pipeline(
   median_PFS_T = log(2) / 0.15,
   median_OS_T = log(2) / 0.05,
   alpha_spending_PFS = "OF",
-  alpha_spending_OS = "Pocock"
+  alpha_spending_OS = "Pocock",
+  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
+  futility_looks = list(PFS = integer(0), OS = integer(0))
 )
 result$theoretical_results$joint_power
 }

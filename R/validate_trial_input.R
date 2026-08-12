@@ -2,25 +2,25 @@
 #
 # Returns a `trial_state` list with `design` and `options`.
 validate_trial_input <- function(n_T, n_C, d_PFS_vec,
-                                 t_vec = NULL, v_vec,
+                                 t_vec, v_vec,
                                  median_PFS_C, median_OS_C,
-                                 median_PFS_T = NULL, median_OS_T = NULL,
-                                 HR_PFS = NULL, HR_OS = NULL,
+                                 median_PFS_T, median_OS_T,
+                                 HR_PFS, HR_OS,
                                  alpha_spending_PFS,
                                  alpha_spending_OS,
-                                 alpha_spending_gamma_PFS = NA_real_,
-                                 alpha_spending_gamma_OS = NA_real_,
-                                 alpha = 0.025,
-                                 efficacy_looks = NULL,
-                                 futility_looks = NULL,
-                                 futility_HR = 1.2,
-                                 hierarchy_order = c(primary = "PFS", secondary = "OS"),
-                                 tol = 1e-8,
-                                 integration_seed = 1,
-                                 simulation_seed = 1,
-                                 simulation = FALSE,
-                                 n_sim = 500,
-                                 display_digits = 4) {
+                                 alpha_spending_gamma_PFS,
+                                 alpha_spending_gamma_OS,
+                                 alpha,
+                                 efficacy_looks,
+                                 futility_looks,
+                                 futility_HR,
+                                 hierarchy_order,
+                                 tol,
+                                 integration_seed,
+                                 simulation_seed,
+                                 simulation,
+                                 n_sim,
+                                 display_digits) {
   # Validate sample sizes.
   checkmate::assert_count(n_T, positive = TRUE, .var.name = "n_T")
   checkmate::assert_count(n_C, positive = TRUE, .var.name = "n_C")

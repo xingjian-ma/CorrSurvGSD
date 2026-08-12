@@ -45,7 +45,9 @@ state <- run_pipeline(
   median_PFS_T = log(2) / 0.15,
   median_OS_T = log(2) / 0.05,
   alpha_spending_PFS = "OF",
-  alpha_spending_OS = "Pocock"
+  alpha_spending_OS = "Pocock",
+  efficacy_looks = list(PFS = 1, OS = 1),
+  futility_looks = list(PFS = integer(0), OS = integer(0))
 )
 
 state$theoretical_results$joint_correlation_matrix
@@ -55,11 +57,13 @@ state$theoretical_results$joint_correlation_matrix
 
 - The design requires treatment and control sample sizes, accrual rates, target
 PFS event counts, control PFS and OS medians, and either treatment medians or
-endpoint-specific hazard ratios.
-- A named `efficacy_looks` list can restrict efficacy analyses by endpoint.
-The default is every look for both PFS and OS.
-- A named `futility_looks` list and `futility_HR` can add endpoint-specific
-futility analyses before the final look.
+endpoint-specific hazard ratios. The unused treatment input pair defaults to
+`NULL`.
+- A named `efficacy_looks` list must be supplied to specify the efficacy
+analyses for each endpoint.
+- A named `futility_looks` list must be supplied to specify endpoint-specific
+futility analyses before the final look. Use empty vectors when futility is not
+used.
 - `hierarchy_order` specifies whether PFS or OS is the primary gatekeeping
 endpoint.
 - The returned `trial_state` stores validated design quantities in
@@ -174,12 +178,14 @@ to `joint_power`.
 
 - When `simulation = TRUE`, the package generates trial-level Fleischer event
 times, enrollment times, event counts, person-time, and Z statistics.
-- Simulation uses theoretical PFS and OS calendar cutoffs and fixed theoretical
-OS event information; it does not modify the closed-form results.
+- Simulation derives each calendar cutoff from the simulated PFS event times
+and calculates OS statistics from the simulated OS event times. It does not
+modify the closed-form results.
 - Invalid replicates with zero events or zero person-time are regenerated up
 to the internal attempt limit.
-- Empirical means, correlations, marginal power, joint power, and the fixed
-simulation seeds are stored in `state$empirical_results`.
+- Empirical means, correlations, marginal power, and joint power are stored in
+`state$empirical_results`. The simulation seed remains in
+`state$options$simulation_seed`.
 
 ## Multi-look gatekeeping example
 
@@ -195,6 +201,8 @@ multi_state <- run_pipeline(
   HR_OS = 0.8,
   alpha_spending_PFS = "OF",
   alpha_spending_OS = "Pocock",
+  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
+  futility_looks = list(PFS = integer(0), OS = integer(0)),
   hierarchy_order = c(primary = "PFS", secondary = "OS")
 )
 
@@ -215,6 +223,8 @@ simulation_state <- run_pipeline(
   HR_OS = 0.8,
   alpha_spending_PFS = "OF",
   alpha_spending_OS = "Pocock",
+  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
+  futility_looks = list(PFS = integer(0), OS = integer(0)),
   simulation = TRUE,
   simulation_seed = 777,
   n_sim = 500

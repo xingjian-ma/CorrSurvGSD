@@ -32,7 +32,9 @@ state <- CorrSurvGSD::run_pipeline(
   median_PFS_T = log(2) / 0.15,
   median_OS_T = log(2) / 0.05,
   alpha_spending_PFS = "OF",
-  alpha_spending_OS = "Pocock"
+  alpha_spending_OS = "Pocock",
+  efficacy_looks = list(PFS = 1, OS = 1),
+  futility_looks = list(PFS = integer(0), OS = integer(0))
 )
 
 state$theoretical_results$joint_power
