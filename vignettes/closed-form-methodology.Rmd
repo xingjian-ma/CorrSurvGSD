@@ -22,7 +22,9 @@ library(CorrSurvGSD)
 
 - `CorrSurvGSD` evaluates correlated PFS and OS group sequential designs under
 the Fleischer model.
-- The implementation follows the modules in `../Blueprint.md`.
+- The implementation follows the developer specification in `code/Blueprint.md`.
+- This vignette summarizes the user-facing statistical workflow and the
+closed-form quantities returned by the package.
 - The pipeline returns theoretical results and can optionally append Monte
 Carlo results without changing the theoretical calculations.
 
@@ -47,6 +49,178 @@ state <- run_pipeline(
 )
 
 state$theoretical_results$joint_correlation_matrix
+```
+
+## Model inputs and pipeline state
+
+- The design requires treatment and control sample sizes, accrual rates, target
+PFS event counts, control PFS and OS medians, and either treatment medians or
+endpoint-specific hazard ratios.
+- A named `efficacy_looks` list can restrict efficacy analyses by endpoint.
+The default is every look for both PFS and OS.
+- A named `futility_looks` list and `futility_HR` can add endpoint-specific
+futility analyses before the final look.
+- `hierarchy_order` specifies whether PFS or OS is the primary gatekeeping
+endpoint.
+- The returned `trial_state` stores validated design quantities in
+`state$design`, numerical settings in `state$options`, and theoretical
+results in `state$theoretical_results`.
+
+## Module 0: input validation and derived design quantities
+
+- The total sample size is `n = n_T + n_C`. Piecewise accrual rates are
+converted to segment durations and enrollment probabilities.
+- Control-arm medians are converted to latent Fleischer hazards.
+
+\begin{equation*}
+\Lambda_C = \frac{\log(2)}{\operatorname{median}_{PFS,C}}, \qquad
+\lambda_{2,C} = \frac{\log(2)}{\operatorname{median}_{OS,C}}, \qquad
+\lambda_{1,C} = \Lambda_C - \lambda_{2,C}.
+\end{equation*}
+
+- Treatment hazards are derived either from treatment medians or from
+`HR_PFS` and `HR_OS`. The validator rejects mixed or incomplete treatment
+effect specifications.
+- Alpha spending supports `"OF"`, `"Pocock"`, and `"HSD"`. HSD requires a
+finite endpoint-specific gamma parameter.
+- Integration and simulation seeds are stored separately so numerical
+integration and Monte Carlo results can be reproduced independently.
+
+## Module 1: calendar cutoffs
+
+- For each PFS event look, the pipeline solves for the expected calendar
+cutoff `A_l`.
+
+\begin{equation*}
+n_T m_{\delta_l^{PFS}}^{(T)}(A_l) +
+n_C m_{\delta_l^{PFS}}^{(C)}(A_l) = d_l^{PFS}.
+\end{equation*}
+
+- The monotone event-count equation is solved numerically using `tol`.
+The resulting `A_vec` is saved in `state$design`.
+
+## Module 2: per-subject moments
+
+- For a subject enrolled at time `U`, define `B = min(A, R)` and integrate
+over the piecewise-uniform enrollment distribution.
+- For endpoint hazard `mu`, the single-look event and truncated-time means
+are obtained from the closed-form integrals `I_1`, `I_4`, and `I_5`.
+
+\begin{aligned*}
+m_\delta &= I_1(A,B,b,\mu) - I_4(A,B,b,\mu), \\
+m_{\tilde{T}} &=
+\frac{I_1(A,B,b,\mu)-I_4(A,B,b,\mu)}{\mu}, \\
+m_{\tilde{T}^2} &=
+\frac{2}{\mu^2}\left[I_1-I_4-\mu I_5\right], \\
+m_{\delta\tilde{T}} &=
+\frac{I_1-I_4}{\mu} - I_5.
+\end{aligned*}
+
+- PFS/OS cross-look products use the ordering of `A_1` and `A_2` and the
+Fleischer latent hazards. The resulting single-look and cross-look moments
+are stored in `state$moments`.
+- Expected OS event counts are derived from the single-look means and saved
+as `state$design$d_OS_vec`.
+
+## Module 3: joint correlation matrix
+
+- The log hazard-ratio variances and PFS/OS cross-endpoint covariances are
+calculated with the Delta method.
+
+\begin{equation*}
+\operatorname{Var}(\hat{\theta}_l^k) =
+\sum_{g \in \{T,C\}} \frac{1}{n_g}
+\nabla g^\top \Sigma_{k,l}^{(g)} \nabla g.
+\end{equation*}
+
+- Within an endpoint, canonical group-sequential information gives
+`rho(l_1, l_2) = sqrt(d_min / d_max)`.
+- Across endpoints, the covariance is standardized by the corresponding
+marginal variances. The combined `(2L) x (2L)` matrix is stored with PFS
+looks first and OS looks second.
+
+## Module 4: boundaries and theoretical power
+
+- The mean drift at look `l` for endpoint `k` is
+
+\begin{equation*}
+\theta_l^k = -\log(HR_k)\sqrt{d_l^k\frac{r}{(1+r)^2}},
+\qquad r = \frac{n_T}{n_C}.
+\end{equation*}
+
+- Efficacy boundaries are calculated from the selected alpha-spending family.
+Configured futility boundaries are calculated from the corresponding
+futility hazard ratios.
+- The primary Z-scale boundary is retained in `state$design$boundary`.
+Finite boundaries are also converted to HR and one-sided p scales.
+
+\begin{equation*}
+s_l = \sqrt{d_l\frac{r}{(1+r)^2}}, \qquad
+HR_l = \exp\left(-\frac{Z_l}{s_l}\right), \qquad
+p_l = 1 - \Phi(Z_l).
+\end{equation*}
+
+- `state$design$boundary_HR` and `state$design$boundary_p` use `NA_real_`
+for unconfigured boundaries, while Z-scale `-Inf` and `Inf` remain available
+for power and simulation logic.
+- `marginal_power` is calculated from first efficacy-crossing regions using
+multivariate normal integration and `integration_seed`.
+- Joint power follows `hierarchy_order`: the primary endpoint must cross its
+efficacy boundary before the secondary endpoint is evaluated. The mutually
+exclusive crossing probabilities are stored in `joint_power_matrix` and sum
+to `joint_power`.
+
+## Module 5: optional simulation
+
+- When `simulation = TRUE`, the package generates trial-level Fleischer event
+times, enrollment times, event counts, person-time, and Z statistics.
+- Simulation uses theoretical PFS and OS calendar cutoffs and fixed theoretical
+OS event information; it does not modify the closed-form results.
+- Invalid replicates with zero events or zero person-time are regenerated up
+to the internal attempt limit.
+- Empirical means, correlations, marginal power, joint power, and the fixed
+simulation seeds are stored in `state$empirical_results`.
+
+## Multi-look gatekeeping example
+
+```{r multi-look-example}
+multi_state <- run_pipeline(
+  n_T = 100,
+  n_C = 100,
+  d_PFS_vec = c(50, 100),
+  v_vec = 200 / 12,
+  median_PFS_C = log(2) / 0.15,
+  median_OS_C = log(2) / 0.05,
+  HR_PFS = 0.8,
+  HR_OS = 0.8,
+  alpha_spending_PFS = "OF",
+  alpha_spending_OS = "Pocock",
+  hierarchy_order = c(primary = "PFS", secondary = "OS")
+)
+
+multi_state$theoretical_results$joint_power
+```
+
+## Optional simulation example
+
+```{r simulation-example, eval = FALSE}
+simulation_state <- run_pipeline(
+  n_T = 100,
+  n_C = 100,
+  d_PFS_vec = c(50, 100),
+  v_vec = 200 / 12,
+  median_PFS_C = log(2) / 0.15,
+  median_OS_C = log(2) / 0.05,
+  HR_PFS = 0.8,
+  HR_OS = 0.8,
+  alpha_spending_PFS = "OF",
+  alpha_spending_OS = "Pocock",
+  simulation = TRUE,
+  simulation_seed = 777,
+  n_sim = 500
+)
+
+simulation_state$empirical_results$joint_power
 ```
 
 ## Reproducibility

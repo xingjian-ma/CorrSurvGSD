@@ -3,29 +3,53 @@
 
 ## Overview
 
-- `CorrSurvGSD` provides closed-form calculations for correlated PFS and OS
-group sequential designs under the Fleischer model.
-- The package computes calendar cutoffs, per-subject moments, joint
-correlations, theoretical power, and optional Monte Carlo summaries.
-- The statistical definitions and derivations are documented in
-`../Blueprint.md` and the package vignette.
+- `CorrSurvGSD` evaluates correlated PFS and OS group sequential designs under the Fleischer model.
+- The package calculates calendar cutoffs, per-subject moments, the joint correlation matrix, group-sequential boundaries, theoretical power, and optional Monte Carlo summaries.
+- The package supports endpoint-specific efficacy alpha spending, optional futility boundaries, and a configurable PFS/OS gatekeeping order.
 
 ## Installation
 
-- From the repository root, load the package during development with
-`devtools::load_all("code/CorrSurvGSD")`.
-- Install the local package with `devtools::install("code/CorrSurvGSD")`.
+- Install the development version from GitHub with `remotes::install_github("xingjian-ma/CorrSurvGSD")`.
+- From a local package checkout, run `devtools::install(".")` in the package root.
+- During package development, load the current source with `devtools::load_all(".")` in the package root.
 
-## Main interface
+## Main analysis interface
 
-- The main public entry point is `CorrSurvGSD::run_pipeline()`.
-- It returns a `trial_state` object containing the validated design and
-theoretical results.
-- Set `simulation = TRUE` to add Monte Carlo results to the returned state.
+- Run an analysis with `CorrSurvGSD::run_pipeline()`.
+- Supply treatment and control sample sizes, planned PFS event counts, accrual rates, control PFS/OS medians, and either treatment medians or endpoint-specific hazard ratios.
+- The returned `trial_state` contains validated inputs in `state$design`, numerical settings in `state$options`, and closed-form results in `state$theoretical_results`.
+- Set `simulation = TRUE` to append Monte Carlo summaries to `state$empirical_results`.
+- Use `integration_seed` for reproducible multivariate-normal integration and `simulation_seed` for reproducible Monte Carlo results.
 
-## Development
+```r
+state <- CorrSurvGSD::run_pipeline(
+  n_T = 100,
+  n_C = 100,
+  d_PFS_vec = 50,
+  v_vec = 200 / 12,
+  median_PFS_C = log(2) / 0.15,
+  median_OS_C = log(2) / 0.05,
+  median_PFS_T = log(2) / 0.15,
+  median_OS_T = log(2) / 0.05,
+  alpha_spending_PFS = "OF",
+  alpha_spending_OS = "Pocock"
+)
 
-- Run tests with `devtools::test("code/CorrSurvGSD")`.
-- Run package checks with `devtools::check("code/CorrSurvGSD")`.
-- The package is synchronized to its GitHub repository with Git subtree using
-the prefix `code/CorrSurvGSD/`.
+state$theoretical_results$joint_power
+```
+
+## Shiny application
+
+- After installation, launch the bundled application with `CorrSurvGSD::run_app()`.
+- The application calls the installed package API and does not require source files from the development checkout.
+
+## Documentation
+
+- The [methodology vignette](vignettes/closed-form-methodology.Rmd) describes the model, closed-form calculations, boundaries, and simulation workflow.
+- The methodology vignette is available after installation with `vignette("closed-form-methodology", package = "CorrSurvGSD")`.
+
+## Development and release
+
+- Run tests from the package root with `R -q -e 'testthat::test_local()'`.
+- Run a package check from the package root with `R CMD check .`.
+- This package is synchronized from the parent workspace with Git subtree using the prefix `code/CorrSurvGSD`.
