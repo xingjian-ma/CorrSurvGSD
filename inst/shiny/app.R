@@ -610,6 +610,20 @@ ui <- fluidPage(
         color: #15556d;
         font-weight: 600;
       }
+      .empty-state {
+        margin: 24px 0;
+        padding: 28px;
+        border: 1px dashed #b9cbd6;
+        border-radius: 8px;
+        background-color: #f8fbfc;
+        color: #5b7180;
+        text-align: center;
+      }
+      .empty-state-error {
+        border-color: #d9a7a7;
+        background-color: #fff8f8;
+        color: #9b3d3d;
+      }
       .intro-hero {
         margin-bottom: 22px;
         padding: 26px 30px;
@@ -931,23 +945,11 @@ ui <- fluidPage(
         ),
         tabPanel(
           "Input and design",
-          tags$h3("Trial design"),
-          tableOutput("trial_design"),
-          tags$h3("Accrual"),
-          tableOutput("accrual_design"),
-          tags$h3("Analysis schedule and testing"),
-          tags$h4("Analysis schedule"),
-          tableOutput("analysis_schedule"),
-          tags$h4("Testing configuration"),
-          tableOutput("testing_summary"),
-          tableOutput("endpoint_testing")
+          uiOutput("design_panel")
         ),
         tabPanel(
           "Results",
-          tags$h3("Marginal power"),
-          tableOutput("marginal_power_results"),
-          tags$h3("Joint power"),
-          uiOutput("joint_power_results")
+          uiOutput("results_panel")
         )
       )
     )
@@ -1025,14 +1027,81 @@ server <- function(input, output, session) {
     calculation_result$state
   })
 
+  empty_state <- function(message, error = FALSE) {
+    class_name <- if (error) {
+      "empty-state empty-state-error"
+    } else {
+      "empty-state"
+    }
+    tags$div(class = class_name, tags$p(message))
+  }
+
   output$status <- renderText({
     calculation_result <- calculation()
+
+    if (is.null(calculation_result)) {
+      return("Enter the design inputs and run the pipeline.")
+    }
 
     if (!is.null(calculation_result$error)) {
       return(paste("Error:", calculation_result$error))
     }
 
     "Pipeline completed."
+  })
+
+  output$design_panel <- renderUI({
+    calculation_result <- calculation()
+
+    if (is.null(calculation_result)) {
+      return(empty_state(
+        "Complete the inputs and run the pipeline to view the design."
+      ))
+    }
+
+    if (!is.null(calculation_result$error)) {
+      return(empty_state(
+        "Resolve the input error before viewing the design.",
+        error = TRUE
+      ))
+    }
+
+    tagList(
+      tags$h3("Trial design"),
+      tableOutput("trial_design"),
+      tags$h3("Accrual"),
+      tableOutput("accrual_design"),
+      tags$h3("Analysis schedule and testing"),
+      tags$h4("Analysis schedule"),
+      tableOutput("analysis_schedule"),
+      tags$h4("Testing configuration"),
+      tableOutput("testing_summary"),
+      tableOutput("endpoint_testing")
+    )
+  })
+
+  output$results_panel <- renderUI({
+    calculation_result <- calculation()
+
+    if (is.null(calculation_result)) {
+      return(empty_state(
+        "Run the pipeline to view marginal and joint power results."
+      ))
+    }
+
+    if (!is.null(calculation_result$error)) {
+      return(empty_state(
+        "Resolve the input error before viewing the results.",
+        error = TRUE
+      ))
+    }
+
+    tagList(
+      tags$h3("Marginal power"),
+      tableOutput("marginal_power_results"),
+      tags$h3("Joint power"),
+      uiOutput("joint_power_results")
+    )
   })
 
   output$download_tables <- downloadHandler(
