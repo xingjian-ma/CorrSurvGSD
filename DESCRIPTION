@@ -1,6 +1,6 @@
 Package: CorrSurvGSD
 Title: Closed-Form Evaluation of Correlated Group Sequential Designs
-Version: 0.0.0.9000
+Version: 0.1.0.9000
 Author: Xingjian Ma [aut, cre]
 Maintainer: Xingjian Ma <xingjian.ma@uconn.edu>
 Authors@R:

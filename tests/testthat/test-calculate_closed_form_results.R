@@ -1,8 +1,9 @@
-# test_closed_gsd_os_and_pfs.R — unit tests for closed_gsd_os_and_pfs.R
+# test-calculate_closed_form_results.R — closed-form result tests.
 #
 # Run with `devtools::test()` from the package root.
 
-state <- validate_trial_input(
+state <- make_test_state(
+  stage = "closed",
   n_T = 100,
   n_C = 100,
   d_PFS_vec = c(50, 100),
@@ -18,11 +19,7 @@ state <- validate_trial_input(
   futility_HR = list(PFS = 1.2, OS = numeric(0))
 )
 
-state <- calendar_cutoff(state)
-state <- per_subject_moments(state)
-state <- joint_cor_matrix(state)
-
-result <- closed_gsd_os_and_pfs(state)
+result <- state
 
 # =================================================================
 # 1. Boundary and drift helpers
@@ -158,7 +155,7 @@ test_that("joint power supports OS-primary hierarchy", {
 # 4. Module 4 state handler
 # =================================================================
 
-test_that("closed_gsd_os_and_pfs appends all required results", {
+test_that("calculate_closed_form_results appends all required results", {
   expected_mean <- c(
     mean_drift(0.8, 1, result$design$d_PFS_vec),
     mean_drift(0.85, 1, result$design$d_OS_vec)

@@ -1,4 +1,4 @@
-# test_simulation.R — unit tests for simulation.R
+# test-run_simulation.R — simulation tests.
 #
 # Run with `devtools::test()` from the package root.
 

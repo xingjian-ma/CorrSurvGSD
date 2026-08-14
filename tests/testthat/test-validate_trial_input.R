@@ -1,9 +1,9 @@
-# test_utils.R — unit tests for utils.R
+# test-validate_trial_input.R — input validation tests.
 #
 # Run with `devtools::test()` from the package root.
 
 test_that("uniform accrual (s=1) validates correctly", {
-  state <- validate_trial_input(
+  state <- validate_test_input(
     n_T = 100, n_C = 100, d_PFS_vec = c(50),
     v_vec = c(200/12),
     median_PFS_C = log(2) / 0.15,
@@ -41,7 +41,7 @@ test_that("uniform accrual (s=1) validates correctly", {
 })
 
 test_that("HR input logic derives treatment hazards correctly", {
-  state <- validate_trial_input(
+  state <- validate_test_input(
     n_T = 100, n_C = 100, d_PFS_vec = c(50),
     v_vec = c(200/12),
     median_PFS_C = log(2) / 0.25,
@@ -60,7 +60,7 @@ test_that("HR input logic derives treatment hazards correctly", {
 })
 
 test_that("t_vec input derives R_vec correctly", {
-  state <- validate_trial_input(
+  state <- validate_test_input(
     n_T = 100, n_C = 100, d_PFS_vec = c(50),
     t_vec = c(6), v_vec = c(100/6, 100/6),
     median_PFS_C = log(2) / 0.15,
@@ -77,7 +77,7 @@ test_that("t_vec input derives R_vec correctly", {
 
 test_that("t_vec non-NULL for s=1 throws error", {
   expect_error(
-    validate_trial_input(
+    validate_test_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(50),
       t_vec = c(6), v_vec = c(200/12),
       median_PFS_C = log(2) / 0.15,
@@ -93,7 +93,7 @@ test_that("t_vec non-NULL for s=1 throws error", {
 
 test_that("v_vec length mismatch with t_vec throws error", {
   expect_error(
-    validate_trial_input(
+    validate_test_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(50),
       t_vec = c(6), v_vec = c(100/6, 100/6, 100/6),
       median_PFS_C = log(2) / 0.15,
@@ -109,7 +109,7 @@ test_that("v_vec length mismatch with t_vec throws error", {
 
 test_that("non-strictly-increasing t_vec throws error", {
   expect_error(
-    validate_trial_input(
+    validate_test_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(50),
       t_vec = c(6, 6), v_vec = c(100/6, 100/6, 100/6),
       median_PFS_C = log(2) / 0.15,
@@ -124,7 +124,7 @@ test_that("non-strictly-increasing t_vec throws error", {
 })
 
 test_that("piecewise s>1 fully derives all quantities", {
-  state <- validate_trial_input(
+  state <- validate_test_input(
     n_T = 80, n_C = 120, d_PFS_vec = c(50, 100),
     t_vec = c(6), v_vec = c(80/6, 120/6),
     median_PFS_C = log(2) / 0.25,
@@ -156,7 +156,7 @@ test_that("piecewise s>1 fully derives all quantities", {
 
 test_that("d_PFS_ell <= n is enforced", {
   expect_error(
-    validate_trial_input(
+    validate_test_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(250),
       v_vec = c(200/12),
       median_PFS_C = log(2) / 0.15,
@@ -172,7 +172,7 @@ test_that("d_PFS_ell <= n is enforced", {
 
 test_that("R_s <= 0 throws error", {
   expect_error(
-    validate_trial_input(
+    validate_test_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(50),
       t_vec = c(20), v_vec = c(200/12, 10),
       median_PFS_C = log(2) / 0.15,
@@ -188,7 +188,7 @@ test_that("R_s <= 0 throws error", {
 
 test_that("treatment input logic must not mix medians and HRs", {
   expect_error(
-    validate_trial_input(
+    validate_test_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(50),
       v_vec = c(200/12),
       median_PFS_C = log(2) / 0.15,
@@ -206,7 +206,7 @@ test_that("treatment input logic must not mix medians and HRs", {
 
 test_that("HR input logic validates derived lambda_1_T", {
   expect_error(
-    validate_trial_input(
+    validate_test_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(50),
       v_vec = c(200/12),
       median_PFS_C = log(2) / 0.15,
@@ -222,7 +222,7 @@ test_that("HR input logic validates derived lambda_1_T", {
 
 test_that("futility looks cannot include the final look", {
   expect_error(
-    validate_trial_input(
+    validate_test_input(
       n_T = 100, n_C = 100, d_PFS_vec = c(50, 100),
       v_vec = c(200 / 12),
       median_PFS_C = log(2) / 0.25,

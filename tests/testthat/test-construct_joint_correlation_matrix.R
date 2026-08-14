@@ -1,5 +1,5 @@
- # test_joint_cor_matrix.R — unit tests for joint_cor_matrix.R
- #
+# test-construct_joint_correlation_matrix.R — correlation matrix tests.
+#
 # Run with `devtools::test()` from the package root.
 #
 # Setup: piecewise accrual (s=2), multi-look (L=2), asymmetric groups.
@@ -8,7 +8,7 @@
 # Shared setup — piecewise + multi-look + asymmetric
 # =================================================================
 
-state <- validate_trial_input(
+state <- make_test_state(
   n_T = 80,
   n_C = 120,
   d_PFS_vec = c(30, 60),
@@ -21,9 +21,6 @@ state <- validate_trial_input(
   alpha_spending_PFS = "OF",
   alpha_spending_OS = "Pocock"
 )
-state <- calendar_cutoff(state)
-state <- per_subject_moments(state)
-state <- joint_cor_matrix(state)
 design <- state$design
 moments <- state$moments
 R_mat <- state$theoretical_results$joint_correlation_matrix
@@ -188,7 +185,7 @@ test_that("all off-diagonal entries in [0, 1]", {
 # =================================================================
 
 test_that("L=1 returns 2×2 correlation matrix", {
-  state1 <- validate_trial_input(
+  state1 <- make_test_state(
     n_T = 80,
     n_C = 120,
     d_PFS_vec = c(30),
@@ -201,9 +198,6 @@ test_that("L=1 returns 2×2 correlation matrix", {
     alpha_spending_PFS = "OF",
     alpha_spending_OS = "Pocock"
   )
-  state1 <- calendar_cutoff(state1)
-  state1 <- per_subject_moments(state1)
-  state1 <- joint_cor_matrix(state1)
   R1 <- state1$theoretical_results$joint_correlation_matrix
 
   expect_equal(dim(R1), c(2, 2))

@@ -1,4 +1,4 @@
-# test_per_subject_moments.R — unit tests for per_subject_moments.R
+# test-compute_per_subject_moments.R — per-subject moment tests.
 #
 # Run with `devtools::test()` from the package root.
 #
@@ -8,7 +8,7 @@
 # Shared setup — piecewise + multi-look + asymmetric
 # =================================================================
 
-state <- validate_trial_input(
+state <- make_test_state(
   n_T = 80,
   n_C = 120,
   d_PFS_vec = c(30, 60),
@@ -21,8 +21,6 @@ state <- validate_trial_input(
   alpha_spending_PFS = "OF",
   alpha_spending_OS = "Pocock"
 )
-state <- calendar_cutoff(state)
-state <- per_subject_moments(state)
 design <- state$design
 moments <- state$moments
 

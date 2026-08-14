@@ -1,4 +1,4 @@
-# test_calendar_cutoff.R — unit tests for calendar_cutoff.R
+# test-calculate_calendar_cutoffs.R — calendar cutoff tests.
 #
 # Run with `devtools::test()` from the package root.
 
@@ -50,26 +50,26 @@ test_that("pfs_event_diff is strictly increasing", {
 })
 
 # -----------------------------------------------------------------
-# calendar_cutoff_single
+# calculate_calendar_cutoff
 # -----------------------------------------------------------------
-test_that("calendar_cutoff_single returns a valid root", {
-  A_root <- calendar_cutoff_single(100, 100, 0.15, 0.15,
+test_that("calculate_calendar_cutoff returns a valid root", {
+  A_root <- calculate_calendar_cutoff(100, 100, 0.15, 0.15,
                                    12, c(6, 12), c(1/12, 1/12), 50, 0,
                                    tol = 1e-8)
   residual <- pfs_event_diff(A_root, 100, 100, 0.15, 0.15, 12, c(6, 12), c(1/12, 1/12), 50)
   expect_equal(residual, 0, tolerance = 1e-6)
 })
 
-test_that("calendar_cutoff_single respects A_prev", {
-  A_root <- calendar_cutoff_single(100, 100, 0.15, 0.15,
+test_that("calculate_calendar_cutoff respects A_prev", {
+  A_root <- calculate_calendar_cutoff(100, 100, 0.15, 0.15,
                                    12, c(6, 12), c(1/12, 1/12), 120,
                                    A_prev = 10, tol = 1e-8)
   expect_gt(A_root, 10)
 })
 
-test_that("calendar_cutoff_single extends bracket when needed", {
+test_that("calculate_calendar_cutoff extends bracket when needed", {
   # small R, large target → bracket needs to grow past 2R
-  A_root <- calendar_cutoff_single(200, 200, 0.07, 0.07,
+  A_root <- calculate_calendar_cutoff(200, 200, 0.07, 0.07,
                                    6, c(3, 6), c(1/6, 1/6), 300, 0,
                                    tol = 1e-8)
   expect_gt(A_root, 12)
@@ -78,10 +78,10 @@ test_that("calendar_cutoff_single extends bracket when needed", {
 })
 
 # -----------------------------------------------------------------
-# calendar_cutoff — full pipeline
+# calculate_calendar_cutoffs — full module
 # -----------------------------------------------------------------
-test_that("calendar_cutoff returns non-decreasing A_vec", {
-  state <- validate_trial_input(
+test_that("calculate_calendar_cutoffs returns non-decreasing A_vec", {
+  state <- validate_test_input(
     n_T = 100, n_C = 100, d_PFS_vec = c(30, 60, 90),
     t_vec = c(6), v_vec = c(200 / 12, 200 / 12),
     median_PFS_C = log(2) / 0.15,
@@ -91,14 +91,14 @@ test_that("calendar_cutoff returns non-decreasing A_vec", {
     alpha_spending_PFS = "OF",
     alpha_spending_OS = "Pocock"
   )
-  state <- calendar_cutoff(state)
+  state <- calculate_calendar_cutoffs(state)
   design <- state$design
   expect_true(all(diff(design$A_vec) >= 0))
   expect_length(design$A_vec, 3)
 })
 
-test_that("calendar_cutoff roots satisfy equation (7)", {
-  state <- validate_trial_input(
+test_that("calculate_calendar_cutoffs roots satisfy equation (7)", {
+  state <- validate_test_input(
     n_T = 150, n_C = 150, d_PFS_vec = c(50, 100, 150),
     t_vec = c(12), v_vec = c(300 / 24, 300 / 24),
     median_PFS_C = log(2) / 0.25,
@@ -108,7 +108,7 @@ test_that("calendar_cutoff roots satisfy equation (7)", {
     alpha_spending_PFS = "OF",
     alpha_spending_OS = "Pocock"
   )
-  state <- calendar_cutoff(state)
+  state <- calculate_calendar_cutoffs(state)
   design <- state$design
   for (ell in seq_along(design$A_vec)) {
     residual <- pfs_event_diff(
