@@ -1,106 +1,117 @@
 # test-calculate_calendar_cutoffs.R — calendar cutoff tests.
 #
-# Run with `devtools::test()` from the package root.
+# Run with \`devtools::test()\` from the package root.
 
-# -----------------------------------------------------------------
-# pfs_mean
-# -----------------------------------------------------------------
-test_that("pfs_mean at A = 0 is zero", {
-  expect_equal(pfs_mean(0, 12, c(6, 12), c(1/12, 1/12), 0.15), 0)
-})
-
-test_that("pfs_mean increases with A", {
+test_that("pfs_mean has expected boundaries and monotonicity", {
   A_seq <- seq(0, 24, length.out = 10)
-  vals  <- vapply(A_seq, function(a) pfs_mean(a, 12, c(6, 12), c(1/12, 1/12), 0.15), 0)
-  expect_true(all(diff(vals) >= 0))
-})
-
-test_that("pfs_mean approaches 1 for large A", {
-  expect_gt(pfs_mean(120, 12, c(6, 12), c(1/12, 1/12), 0.15), 0.99)
-})
-
-test_that("pfs_mean hand-checked value", {
-  # A = R = 12, B = 12, Lambda = 0.15
-  # I1 = 1, I4 = (1 - exp(-1.8)) / 1.8
-  # m_delta = 1 - I4 ≈ 0.5363
-  actual   <- pfs_mean(12, 12, c(6, 12), c(1/12, 1/12), 0.15)
-  expected <- 1 - (1 - exp(-1.8)) / 1.8
-  expect_equal(actual, expected, tolerance = 1e-6)
-})
-
-# -----------------------------------------------------------------
-# pfs_event_diff
-# -----------------------------------------------------------------
-test_that("pfs_event_diff is negative at A = 0", {
-  diff0 <- pfs_event_diff(0, 100, 100, 0.15, 0.15, 12, c(6, 12), c(1/12, 1/12), 50)
-  expect_lt(diff0, 0)
-})
-
-test_that("pfs_event_diff is positive for large A", {
-  diff_large <- pfs_event_diff(120, 100, 100, 0.15, 0.15, 12, c(6, 12), c(1/12, 1/12), 50)
-  expect_gt(diff_large, 0)
-})
-
-test_that("pfs_event_diff is strictly increasing", {
-  A_seq <- seq(0, 48, length.out = 20)
-  diffs <- vapply(A_seq, function(a) {
-    pfs_event_diff(a, 100, 100, 0.15, 0.15, 12, c(6, 12), c(1/12, 1/12), 50)
-  }, 0)
-  expect_true(all(diff(diffs) > 0))
-})
-
-# -----------------------------------------------------------------
-# calculate_calendar_cutoff
-# -----------------------------------------------------------------
-test_that("calculate_calendar_cutoff returns a valid root", {
-  A_root <- calculate_calendar_cutoff(100, 100, 0.15, 0.15,
-                                   12, c(6, 12), c(1/12, 1/12), 50, 0,
-                                   tol = 1e-8)
-  residual <- pfs_event_diff(A_root, 100, 100, 0.15, 0.15, 12, c(6, 12), c(1/12, 1/12), 50)
-  expect_equal(residual, 0, tolerance = 1e-6)
-})
-
-test_that("calculate_calendar_cutoff respects A_prev", {
-  A_root <- calculate_calendar_cutoff(100, 100, 0.15, 0.15,
-                                   12, c(6, 12), c(1/12, 1/12), 120,
-                                   A_prev = 10, tol = 1e-8)
-  expect_gt(A_root, 10)
-})
-
-test_that("calculate_calendar_cutoff extends bracket when needed", {
-  # small R, large target → bracket needs to grow past 2R
-  A_root <- calculate_calendar_cutoff(200, 200, 0.07, 0.07,
-                                   6, c(3, 6), c(1/6, 1/6), 300, 0,
-                                   tol = 1e-8)
-  expect_gt(A_root, 12)
-  residual <- pfs_event_diff(A_root, 200, 200, 0.07, 0.07, 6, c(3, 6), c(1/6, 1/6), 300)
-  expect_equal(residual, 0, tolerance = 1e-6)
-})
-
-# -----------------------------------------------------------------
-# calculate_calendar_cutoffs — full module
-# -----------------------------------------------------------------
-test_that("calculate_calendar_cutoffs returns non-decreasing A_vec", {
-  state <- validate_test_input(
-    n_T = 100, n_C = 100, d_PFS_vec = c(30, 60, 90),
-    t_vec = c(6), v_vec = c(200 / 12, 200 / 12),
-    median_PFS_C = log(2) / 0.15,
-    median_OS_C = log(2) / 0.05,
-    median_PFS_T = log(2) / 0.15,
-    median_OS_T = log(2) / 0.05,
-    alpha_spending_PFS = "OF",
-    alpha_spending_OS = "Pocock"
+  values <- vapply(
+    A_seq,
+    pfs_mean,
+    numeric(1),
+    R = 12,
+    t_vec = c(6, 12),
+    p_vec = c(1 / 12, 1 / 12),
+    Lambda = 0.15
   )
-  state <- calculate_calendar_cutoffs(state)
-  design <- state$design
-  expect_true(all(diff(design$A_vec) >= 0))
-  expect_length(design$A_vec, 3)
+
+  expect_equal(values[1], 0)
+  expect_true(all(diff(values) >= 0))
+  expect_gt(
+    pfs_mean(120, 12, c(6, 12), c(1 / 12, 1 / 12), 0.15),
+    0.99
+  )
+
+  expected <- 1 - (1 - exp(-1.8)) / 1.8
+  expect_equal(
+    pfs_mean(12, 12, c(6, 12), c(1 / 12, 1 / 12), 0.15),
+    expected,
+    tolerance = 1e-6
+  )
 })
 
-test_that("calculate_calendar_cutoffs roots satisfy equation (7)", {
+test_that("pfs_event_diff crosses zero monotonically", {
+  values <- vapply(
+    seq(0, 48, length.out = 20),
+    pfs_event_diff,
+    numeric(1),
+    n_T = 100,
+    n_C = 100,
+    Lambda_T = 0.15,
+    Lambda_C = 0.15,
+    R = 12,
+    t_vec = c(6, 12),
+    p_vec = c(1 / 12, 1 / 12),
+    d_target = 50
+  )
+
+  expect_lt(values[1], 0)
+  expect_gt(values[length(values)], 0)
+  expect_true(all(diff(values) > 0))
+})
+
+test_that("calendar cutoff root handles guards and bracket extension", {
+  cases <- list(
+    list(
+      n_T = 100,
+      n_C = 100,
+      Lambda_T = 0.15,
+      Lambda_C = 0.15,
+      R = 12,
+      t_vec = c(6, 12),
+      p_vec = c(1 / 12, 1 / 12),
+      d_target = 50,
+      A_prev = 0,
+      tol = 1e-8
+    ),
+    list(
+      n_T = 100,
+      n_C = 100,
+      Lambda_T = 0.15,
+      Lambda_C = 0.15,
+      R = 12,
+      t_vec = c(6, 12),
+      p_vec = c(1 / 12, 1 / 12),
+      d_target = 120,
+      A_prev = 10,
+      tol = 1e-8
+    ),
+    list(
+      n_T = 200,
+      n_C = 200,
+      Lambda_T = 0.07,
+      Lambda_C = 0.07,
+      R = 6,
+      t_vec = c(3, 6),
+      p_vec = c(1 / 6, 1 / 6),
+      d_target = 300,
+      A_prev = 0,
+      tol = 1e-8
+    )
+  )
+
+  for (case in cases) {
+    root <- do.call(calculate_calendar_cutoff, case)
+    residual <- do.call(
+      pfs_event_diff,
+      c(case[names(case) != "A_prev" & names(case) != "tol"],
+        list(A = root))
+    )
+    expect_equal(residual, 0, tolerance = 1e-6)
+    expect_gt(root, case$A_prev)
+  }
+  expect_gt(
+    do.call(calculate_calendar_cutoff, cases[[3]]),
+    12
+  )
+})
+
+test_that("calendar cutoff module returns ordered roots", {
   state <- validate_test_input(
-    n_T = 150, n_C = 150, d_PFS_vec = c(50, 100, 150),
-    t_vec = c(12), v_vec = c(300 / 24, 300 / 24),
+    n_T = 150,
+    n_C = 150,
+    d_PFS_vec = c(50, 100, 150),
+    t_vec = c(12),
+    v_vec = c(300 / 24, 300 / 24),
     median_PFS_C = log(2) / 0.25,
     median_OS_C = log(2) / 0.10,
     median_PFS_T = log(2) / 0.15,
@@ -110,10 +121,20 @@ test_that("calculate_calendar_cutoffs roots satisfy equation (7)", {
   )
   state <- calculate_calendar_cutoffs(state)
   design <- state$design
+
+  expect_length(design$A_vec, 3)
+  expect_true(all(diff(design$A_vec) >= 0))
   for (ell in seq_along(design$A_vec)) {
     residual <- pfs_event_diff(
-      design$A_vec[ell], 150, 150, 0.15, 0.25,
-      24, c(12, 24), c(1/24, 1/24), design$d_PFS_vec[ell]
+      design$A_vec[ell],
+      150,
+      150,
+      0.15,
+      0.25,
+      24,
+      c(12, 24),
+      c(1 / 24, 1 / 24),
+      design$d_PFS_vec[ell]
     )
     expect_equal(residual, 0, tolerance = 1e-6)
   }

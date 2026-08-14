@@ -1,13 +1,9 @@
 # test-calculate_closed_form_results.R — closed-form result tests.
 #
-# Run with `devtools::test()` from the package root.
+# Run with \`devtools::test()\` from the package root.
 
-# =================================================================
-# 1. Boundary and drift helpers
-# =================================================================
-
-test_that("build_boundary handles a single active efficacy look", {
-  actual <- build_boundary(
+test_that("boundary helpers and mean drift preserve reference values", {
+  single <- build_boundary(
     d_vec = 100,
     L = 1,
     alpha = 0.025,
@@ -18,15 +14,7 @@ test_that("build_boundary handles a single active efficacy look", {
     futility_HR = numeric(0),
     r = 1
   )
-  expect_equal(
-    unname(actual[1, "efficacy"]),
-    unname(stats::qnorm(0.975))
-  )
-  expect_true(is.infinite(actual[1, "futility"]))
-})
-
-test_that("build_boundary retains futility before efficacy starts", {
-  actual <- build_boundary(
+  staged <- build_boundary(
     d_vec = c(50, 100),
     L = 2,
     alpha = 0.025,
@@ -37,56 +25,44 @@ test_that("build_boundary retains futility before efficacy starts", {
     futility_HR = 1.2,
     r = 1
   )
-  expect_true(is.infinite(actual[1, "efficacy"]))
-  expect_true(is.finite(actual[1, "futility"]))
-  expect_true(is.finite(actual[2, "efficacy"]))
-})
 
-test_that("mean_drift matches the closed-form expression", {
-  actual <- mean_drift(0.8, 1, c(50, 100))
-  expected <- -log(0.8) * sqrt(c(50, 100) / 4)
-  expect_equal(actual, expected)
-})
-
-# =================================================================
-# 2. First-crossing and marginal power
-# =================================================================
-
-test_that("first_crossing_bounds uses efficacy at the current look", {
-  boundary <- cbind(
-    futility = c(-0.5, -0.4),
-    efficacy = c(2.5, 2.0)
+  expect_equal(
+    unname(single[1, "efficacy"]),
+    stats::qnorm(0.975)
   )
-  bounds <- first_crossing_bounds(boundary, look = 2)
-  expect_equal(bounds$lower, c(-0.5, 2.0))
-  expect_equal(bounds$upper, c(2.5, Inf))
+  expect_true(is.infinite(single[1, "futility"]))
+  expect_true(is.infinite(staged[1, "efficacy"]))
+  expect_true(is.finite(staged[1, "futility"]))
+  expect_true(is.finite(staged[2, "efficacy"]))
+  expect_equal(
+    mean_drift(0.8, 1, c(50, 100)),
+    -log(0.8) * sqrt(c(50, 100) / 4)
+  )
 })
 
-test_that("first_crossing_bounds delays efficacy to gate_start", {
+test_that("first-crossing bounds respect current look and gate start", {
   boundary <- cbind(
     futility = c(-1, -1, -1),
     efficacy = c(2, 2, 2)
   )
-  bounds <- first_crossing_bounds(boundary, look = 3, gate_start = 2)
+  current <- first_crossing_bounds(boundary, look = 3)
+  gated <- first_crossing_bounds(boundary, look = 3, gate_start = 2)
 
-  expect_equal(bounds$lower, c(-1, -1, 2))
-  expect_equal(bounds$upper, c(Inf, 2, Inf))
+  expect_equal(current$lower, c(-1, -1, 2))
+  expect_equal(current$upper, c(2, 2, Inf))
+  expect_equal(gated$lower, c(-1, -1, 2))
+  expect_equal(gated$upper, c(Inf, 2, Inf))
 })
 
-test_that("single-look marginal power matches the normal tail", {
-  power <- calculate_marginal_power(
+test_that("marginal power handles single look and delayed efficacy", {
+  single <- calculate_marginal_power(
     mean_vector = 0,
     correlation_matrix = matrix(1, 1, 1),
     boundary = cbind(futility = -Inf, efficacy = 0),
     L = 1,
     seed = 777
   )
-  expect_equal(unname(power[1, "incremental"]), 0.5)
-  expect_equal(unname(power[1, "cumulative"]), 0.5)
-})
-
-test_that("marginal power is zero before efficacy_start", {
-  power <- calculate_marginal_power(
+  delayed <- calculate_marginal_power(
     mean_vector = c(0, 0),
     correlation_matrix = diag(2),
     boundary = cbind(
@@ -97,24 +73,19 @@ test_that("marginal power is zero before efficacy_start", {
     seed = 777
   )
 
-  expect_equal(unname(power[1, "incremental"]), 0)
-  expect_equal(unname(power[1, "cumulative"]), 0)
-  expect_equal(unname(power[2, "incremental"]), 0.5)
-  expect_equal(unname(power[2, "cumulative"]), 0.5)
+  expect_equal(unname(single[1, ]), c(0.5, 0.5))
+  expect_equal(unname(delayed[1, ]), c(0, 0))
+  expect_equal(unname(delayed[2, ]), c(0.5, 0.5))
 })
 
-# =================================================================
-# 3. Joint power
-# =================================================================
-
-test_that("joint power supports OS-primary hierarchy", {
+test_that("joint power respects OS-primary hierarchy", {
   boundary <- rbind(
     c(futility = -Inf, efficacy = 0),
     c(futility = -Inf, efficacy = 0),
     c(futility = -Inf, efficacy = 0),
     c(futility = -Inf, efficacy = 0)
   )
-  joint_power_matrix <- calculate_joint_power(
+  result <- calculate_joint_power(
     joint_mean_vector = rep(0, 4),
     joint_correlation_matrix = diag(4),
     boundary = boundary,
@@ -123,20 +94,16 @@ test_that("joint power supports OS-primary hierarchy", {
     seed = 777
   )
 
-  expect_equal(rownames(joint_power_matrix), c("OS_1", "OS_2"))
-  expect_equal(colnames(joint_power_matrix), c("PFS_1", "PFS_2"))
-  expect_equal(unname(joint_power_matrix[1, 1]), 0.25)
-  expect_equal(unname(joint_power_matrix[1, 2]), 0.125)
-  expect_equal(unname(joint_power_matrix[2, 2]), 0.125)
-  expect_true(is.na(joint_power_matrix[2, 1]))
-  expect_equal(sum(joint_power_matrix, na.rm = TRUE), 0.5)
+  expect_equal(rownames(result), c("OS_1", "OS_2"))
+  expect_equal(colnames(result), c("PFS_1", "PFS_2"))
+  expect_equal(unname(result[1, 1]), 0.25)
+  expect_equal(unname(result[1, 2]), 0.125)
+  expect_equal(unname(result[2, 2]), 0.125)
+  expect_true(is.na(result[2, 1]))
+  expect_equal(sum(result, na.rm = TRUE), 0.5)
 })
 
-# =================================================================
-# 4. Module 4 state handler
-# =================================================================
-
-test_that("calculate_closed_form_results appends all required results", {
+test_that("closed-form state contains boundaries and power results", {
   result <- make_test_state(
     stage = "closed",
     n_T = 100,
@@ -153,53 +120,55 @@ test_that("calculate_closed_form_results appends all required results", {
     futility_looks = list(PFS = 1, OS = integer(0)),
     futility_HR = list(PFS = 1.2, OS = numeric(0))
   )
-  expected_mean <- c(
-    mean_drift(0.8, 1, result$design$d_PFS_vec),
-    mean_drift(0.85, 1, result$design$d_OS_vec)
-  )
-  expected_futility <- -log(1.2) *
-    sqrt(result$design$d_PFS_vec * result$design$r / (1 + result$design$r)^2)
+  design <- result$design
+  theoretical <- result$theoretical_results
+  finite_boundary <- is.finite(design$boundary)
 
-  expect_equal(dim(result$design$boundary), c(4, 2))
-  expect_true(all(is.finite(result$design$boundary[, "efficacy"])))
-  expect_equal(dim(result$design$boundary_HR), c(4, 2))
-  expect_equal(dim(result$design$boundary_p), c(4, 2))
-  expect_equal(
-    dimnames(result$design$boundary_HR),
-    dimnames(result$design$boundary)
+  expect_equal(dim(design$boundary), c(4, 2))
+  expect_true(all(is.finite(design$boundary[, "efficacy"])))
+  expect_equal(dim(design$boundary_HR), c(4, 2))
+  expect_equal(dim(design$boundary_p), c(4, 2))
+  expect_equal(dimnames(design$boundary_HR), dimnames(design$boundary))
+  expect_equal(dimnames(design$boundary_p), dimnames(design$boundary))
+  expect_true(all(is.finite(design$boundary_HR[finite_boundary])))
+  expect_true(all(is.finite(design$boundary_p[finite_boundary])))
+  expect_true(all(is.na(design$boundary_HR[!finite_boundary])))
+  expect_true(all(is.na(design$boundary_p[!finite_boundary])))
+
+  efficacy_scale <- sqrt(
+    design$d_PFS_vec[1] * design$r / (1 + design$r)^2
   )
   expect_equal(
-    dimnames(result$design$boundary_p),
-    dimnames(result$design$boundary)
-  )
-  finite_boundary <- is.finite(result$design$boundary)
-  expect_true(all(is.finite(result$design$boundary_HR[finite_boundary])))
-  expect_true(all(is.finite(result$design$boundary_p[finite_boundary])))
-  expect_true(all(is.na(result$design$boundary_HR[!finite_boundary])))
-  expect_true(all(is.na(result$design$boundary_p[!finite_boundary])))
-  efficacy_scale <- sqrt(result$design$d_PFS_vec[1] * result$design$r /
-                         (1 + result$design$r)^2)
-  expect_equal(
-    result$design$boundary_HR[1, "efficacy"],
-    exp(-result$design$boundary[1, "efficacy"] / efficacy_scale)
+    design$boundary_HR[1, "efficacy"],
+    exp(-design$boundary[1, "efficacy"] / efficacy_scale)
   )
   expect_equal(
-    result$design$boundary_p[1, "efficacy"],
-    stats::pnorm(result$design$boundary[1, "efficacy"], lower.tail = FALSE)
+    design$boundary_p[1, "efficacy"],
+    stats::pnorm(design$boundary[1, "efficacy"], lower.tail = FALSE)
   )
-  expect_equal(result$theoretical_results$joint_mean_vector, expected_mean)
+
+  expected_mean <- c(
+    mean_drift(0.8, 1, design$d_PFS_vec),
+    mean_drift(0.85, 1, design$d_OS_vec)
+  )
+  expect_equal(theoretical$joint_mean_vector, expected_mean)
+  expected_futility <- -log(1.2) * sqrt(
+    design$d_PFS_vec * design$r / (1 + design$r)^2
+  )
   expect_equal(
-    unname(result$design$boundary[1:2, "futility"]),
+    unname(design$boundary[1:2, "futility"]),
     c(expected_futility[1], -Inf)
   )
-  expect_true(all(is.infinite(result$design$boundary[3:4, "futility"])))
-  expect_equal(dim(result$theoretical_results$marginal_power), c(4, 2))
-  expect_equal(rownames(result$theoretical_results$marginal_power),
-               c("PFS_1", "PFS_2", "OS_1", "OS_2"))
-  expect_equal(dim(result$theoretical_results$joint_power_matrix), c(2, 2))
-  expect_true(is.na(result$theoretical_results$joint_power_matrix[2, 1]))
+  expect_true(all(is.infinite(design$boundary[3:4, "futility"])))
+  expect_equal(dim(theoretical$marginal_power), c(4, 2))
   expect_equal(
-    result$theoretical_results$joint_power,
-    sum(result$theoretical_results$joint_power_matrix, na.rm = TRUE)
+    rownames(theoretical$marginal_power),
+    c("PFS_1", "PFS_2", "OS_1", "OS_2")
+  )
+  expect_equal(dim(theoretical$joint_power_matrix), c(2, 2))
+  expect_true(is.na(theoretical$joint_power_matrix[2, 1]))
+  expect_equal(
+    theoretical$joint_power,
+    sum(theoretical$joint_power_matrix, na.rm = TRUE)
   )
 })

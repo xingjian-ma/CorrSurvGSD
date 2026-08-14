@@ -1,6 +1,6 @@
 # test-run_simulation.R — simulation tests.
 #
-# Run with `devtools::test()` from the package root.
+# Run with \`devtools::test()\` from the package root.
 
 simulation_design <- list(
   n_T = 100,
@@ -25,29 +25,25 @@ simulation_boundary <- rbind(
 )
 rownames(simulation_boundary) <- c("PFS_1", "PFS_2", "OS_1", "OS_2")
 
-# =================================================================
-# 1. Trial-level simulation statistics
-# =================================================================
-
-test_that("simulate_trial_statistics returns reproducible valid Z-scores", {
-  z_first <- simulate_trial_statistics(
+test_that("trial-level simulation is reproducible and finite", {
+  first <- simulate_trial_statistics(
     design = simulation_design,
     n_sim = 6,
     seed = 123
   )
-  z_second <- simulate_trial_statistics(
+  second <- simulate_trial_statistics(
     design = simulation_design,
     n_sim = 6,
     seed = 123
   )
 
-  expect_equal(dim(z_first), c(6, 4))
-  expect_equal(colnames(z_first), c("PFS_1", "PFS_2", "OS_1", "OS_2"))
-  expect_true(all(is.finite(z_first)))
-  expect_equal(z_first, z_second)
+  expect_equal(dim(first), c(6, 4))
+  expect_equal(colnames(first), c("PFS_1", "PFS_2", "OS_1", "OS_2"))
+  expect_true(all(is.finite(first)))
+  expect_equal(first, second)
 })
 
-test_that("simulate_trial_statistics stops after exhausted invalid attempts", {
+test_that("simulation reports exhausted invalid attempts", {
   no_valid_design <- simulation_design
   no_valid_design$n_T <- 1
   no_valid_design$n_C <- 1
@@ -67,46 +63,43 @@ test_that("simulate_trial_statistics stops after exhausted invalid attempts", {
   )
 })
 
-# =================================================================
-# 2. First efficacy crossing
-# =================================================================
-
-test_that("first_efficacy_crossing evaluates futility before efficacy", {
-  boundary <- rbind(
+test_that("first efficacy crossing applies futility and gate start", {
+  futility_boundary <- rbind(
     c(futility = -1, efficacy = Inf),
     c(futility = -1, efficacy = 2)
   )
-
-  expect_identical(
-    first_efficacy_crossing(c(-1.1, 3), boundary, gate_start = 2),
-    NA_integer_
-  )
-})
-
-test_that("first_efficacy_crossing respects gate_start", {
-  boundary <- rbind(
+  gated_boundary <- rbind(
     c(futility = -Inf, efficacy = 2),
     c(futility = -Inf, efficacy = 2)
   )
 
   expect_identical(
-    first_efficacy_crossing(c(3, 2.1), boundary, gate_start = 2),
+    first_efficacy_crossing(
+      c(-1.1, 3),
+      futility_boundary,
+      gate_start = 2
+    ),
+    NA_integer_
+  )
+  expect_identical(
+    first_efficacy_crossing(
+      c(3, 2.1),
+      gated_boundary,
+      gate_start = 2
+    ),
     2L
   )
 })
 
-# =================================================================
-# 3. Marginal and gatekeeping joint power
-# =================================================================
-
-test_that("summarize_simulation_power computes PFS-primary power", {
+test_that("simulation power supports both hierarchy orders", {
   z <- rbind(
     c(1.5, 2.0, 1.5, 2.0),
     c(0.0, 1.5, 1.5, 1.5),
     c(0.0, 0.0, 1.5, 1.5),
     c(1.5, 0.0, 0.0, 1.5)
   )
-  result <- summarize_simulation_power(
+
+  pfs_primary <- summarize_simulation_power(
     z = z,
     boundary = simulation_boundary,
     hierarchy_order = c(primary = "PFS", secondary = "OS")
@@ -118,46 +111,34 @@ test_that("summarize_simulation_power computes PFS-primary power", {
     c(incremental = 0.25, cumulative = 1.00)
   )
   rownames(expected_marginal) <- c("PFS_1", "PFS_2", "OS_1", "OS_2")
-  expected_joint <- matrix(
+  expected_pfs_joint <- matrix(
     c(0.25, 0.25, NA_real_, 0.25),
     nrow = 2,
-    byrow = TRUE
+    byrow = TRUE,
+    dimnames = list(c("PFS_1", "PFS_2"), c("OS_1", "OS_2"))
   )
-  rownames(expected_joint) <- c("PFS_1", "PFS_2")
-  colnames(expected_joint) <- c("OS_1", "OS_2")
 
-  expect_equal(result$marginal_power, expected_marginal)
-  expect_equal(result$joint_power_matrix, expected_joint)
-  expect_equal(result$joint_power, 0.75)
-})
+  expect_equal(pfs_primary$marginal_power, expected_marginal)
+  expect_equal(pfs_primary$joint_power_matrix, expected_pfs_joint)
+  expect_equal(pfs_primary$joint_power, 0.75)
 
-test_that("summarize_simulation_power supports an OS-primary hierarchy", {
-  z <- rbind(
-    c(1.5, 2.0, 1.5, 2.0),
-    c(0.0, 1.5, 1.5, 1.5),
-    c(0.0, 0.0, 1.5, 1.5),
-    c(1.5, 0.0, 0.0, 1.5)
-  )
-  result <- summarize_simulation_power(
+  os_primary <- summarize_simulation_power(
     z = z,
     boundary = simulation_boundary,
     hierarchy_order = c(primary = "OS", secondary = "PFS")
   )
+  expected_os_joint <- matrix(
+    c(0.25, 0.25, NA_real_, 0),
+    nrow = 2,
+    byrow = TRUE,
+    dimnames = list(c("OS_1", "OS_2"), c("PFS_1", "PFS_2"))
+  )
 
-  expect_equal(rownames(result$joint_power_matrix), c("OS_1", "OS_2"))
-  expect_equal(colnames(result$joint_power_matrix), c("PFS_1", "PFS_2"))
-  expect_equal(result$joint_power_matrix[1, 1], 0.25)
-  expect_equal(result$joint_power_matrix[1, 2], 0.25)
-  expect_equal(result$joint_power_matrix[2, 2], 0)
-  expect_true(is.na(result$joint_power_matrix[2, 1]))
-  expect_equal(result$joint_power, 0.50)
+  expect_equal(os_primary$joint_power_matrix, expected_os_joint)
+  expect_equal(os_primary$joint_power, 0.50)
 })
 
-# =================================================================
-# 4. Module 5 state handler
-# =================================================================
-
-test_that("run_simulation stores empirical results without mutation", {
+test_that("run_simulation preserves theoretical state and stores empirical results", {
   state <- list(
     design = c(
       simulation_design,
@@ -170,14 +151,11 @@ test_that("run_simulation stores empirical results without mutation", {
     theoretical_results = list(marker = "unchanged")
   )
   result <- run_simulation(state)
-  repeated_result <- run_simulation(state)
+  repeated <- run_simulation(state)
 
   expect_identical(result$design, state$design)
   expect_identical(result$theoretical_results, state$theoretical_results)
-  expect_identical(
-    result$empirical_results,
-    repeated_result$empirical_results
-  )
+  expect_identical(result$empirical_results, repeated$empirical_results)
   expect_named(
     result$empirical_results,
     c(
@@ -189,7 +167,10 @@ test_that("run_simulation stores empirical results without mutation", {
     )
   )
   expect_equal(length(result$empirical_results$joint_mean_vector), 4)
-  expect_equal(dim(result$empirical_results$joint_correlation_matrix), c(4, 4))
+  expect_equal(
+    dim(result$empirical_results$joint_correlation_matrix),
+    c(4, 4)
+  )
   expect_equal(dim(result$empirical_results$marginal_power), c(4, 2))
   expect_equal(dim(result$empirical_results$joint_power_matrix), c(2, 2))
   expect_equal(

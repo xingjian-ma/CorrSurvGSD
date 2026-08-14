@@ -40,7 +40,7 @@ validate_test_input <- function(...) {
     display_digits = 4
   )
 
-  do.call(validate_trial_input, modifyList(defaults, supplied))
+  do.call(validate_trial_input, modifyList(defaults, supplied, keep.null = TRUE))
 }
 
 make_test_state <- function(stage = "correlation", ...) {
@@ -63,7 +63,7 @@ make_test_state <- function(stage = "correlation", ...) {
   state
 }
 
-local_moments_fixture <- function(env = parent.frame()) {
+local_moments_fixture <- function() {
   state <- make_test_state(
     stage = "moments",
     n_T = 80,
@@ -92,11 +92,10 @@ local_moments_fixture <- function(env = parent.frame()) {
     types = c("delta", "time"),
     eps = c("PFS", "OS")
   )
-  list2env(fixture, envir = env)
-  invisible(fixture)
+  fixture
 }
 
-local_correlation_fixture <- function(env = parent.frame()) {
+local_correlation_fixture <- function() {
   state <- make_test_state(
     n_T = 80,
     n_C = 120,
@@ -137,6 +136,5 @@ local_correlation_fixture <- function(env = parent.frame()) {
     groups = c("T", "C"),
     d_OS = d_OS
   )
-  list2env(fixture, envir = env)
-  invisible(fixture)
+  fixture
 }
