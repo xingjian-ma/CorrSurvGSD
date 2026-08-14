@@ -551,6 +551,267 @@ collect_pipeline_arguments <- function(input) {
   c(arguments, optional_arguments, hierarchy_arguments, treatment_arguments)
 }
 
+is_missing_input <- function(value) {
+  is.null(value) || length(value) != 1 || is.na(value) ||
+    (is.character(value) && !nzchar(trimws(value)))
+}
+
+required_input_labels <- function(input) {
+  missing <- list()
+  add_missing <- function(id, label) {
+    missing[[id]] <<- label
+  }
+
+  if (is_missing_input(input$n_T)) {
+    add_missing("n_T", "Treatment group sample size")
+  }
+  if (is_missing_input(input$n_C)) {
+    add_missing("n_C", "Control group sample size")
+  }
+  if (is_missing_input(input$median_PFS_C)) {
+    add_missing("median_PFS_C", "Control group median PFS")
+  }
+  if (is_missing_input(input$median_OS_C)) {
+    add_missing("median_OS_C", "Control group median OS")
+  }
+  if (is_missing_input(input$effect_mode)) {
+    add_missing("effect_mode", "Treatment effect input type")
+  }
+  if (identical(input$effect_mode, "hr")) {
+    if (is_missing_input(input$HR_PFS)) {
+      add_missing("HR_PFS", "PFS hazard ratio")
+    }
+    if (is_missing_input(input$HR_OS)) {
+      add_missing("HR_OS", "OS hazard ratio")
+    }
+  }
+  if (identical(input$effect_mode, "median")) {
+    if (is_missing_input(input$median_PFS_T)) {
+      add_missing("median_PFS_T", "Treatment group median PFS")
+    }
+    if (is_missing_input(input$median_OS_T)) {
+      add_missing("median_OS_T", "Treatment group median OS")
+    }
+  }
+  if (is_missing_input(input$accrual_segments)) {
+    add_missing("accrual_segments", "Number of accrual segments")
+  } else {
+    segment_count <- suppressWarnings(as.integer(input$accrual_segments))
+    has_segment_table <- !is.na(segment_count) && segment_count > 0 &&
+      input$accrual_segments == segment_count
+    if (has_segment_table) {
+      for (segment in seq_len(segment_count)) {
+        rate_id <- accrual_input_id("accrual_rate", segment)
+        if (is_missing_input(input[[rate_id]])) {
+          add_missing(rate_id, paste("Accrual rate for segment", segment))
+        }
+        if (segment > 1) {
+          start_id <- accrual_input_id("accrual_start", segment)
+          if (is_missing_input(input[[start_id]])) {
+            add_missing(start_id, paste("Start time for segment", segment))
+          }
+        }
+      }
+    }
+  }
+  if (is_missing_input(input$d_PFS_vec)) {
+    add_missing("d_PFS_vec", "Target PFS events by look")
+  }
+  if (is_missing_input(input$alpha_spending_PFS)) {
+    add_missing("alpha_spending_PFS", "PFS alpha spending function")
+  }
+  if (is_missing_input(input$alpha_spending_OS)) {
+    add_missing("alpha_spending_OS", "OS alpha spending function")
+  }
+  if (identical(input$alpha_spending_PFS, "HSD") &&
+      is_missing_input(input$alpha_spending_gamma_PFS)) {
+    add_missing("alpha_spending_gamma_PFS", "PFS HSD gamma")
+  }
+  if (identical(input$alpha_spending_OS, "HSD") &&
+      is_missing_input(input$alpha_spending_gamma_OS)) {
+    add_missing("alpha_spending_gamma_OS", "OS HSD gamma")
+  }
+
+  missing
+}
+
+translate_pipeline_error <- function(message) {
+  mappings <- list(
+    list("d_PFS_vec must be a comma-separated", paste(
+      "Enter target PFS events as comma-separated numbers, for example: ",
+      "50, 100."
+    )),
+    list("Select a treatment effect input mode", paste(
+      "Choose either Hazard ratios or Median survival times for the ",
+      "treatment effect."
+    )),
+    list("Number of accrual segments", paste(
+      "Enter the number of accrual segments as a positive whole number."
+    )),
+    list("PFS HSD gamma must be a finite number", paste(
+      "Enter PFS HSD gamma as a finite number."
+    )),
+    list("OS HSD gamma must be a finite number", paste(
+      "Enter OS HSD gamma as a finite number."
+    )),
+    list("Each accrual segment must have an accrual rate", paste(
+      "Enter an accrual rate for every configured accrual segment."
+    )),
+    list("Each accrual segment after the first must have a start time", paste(
+      "Enter a start time for every accrual segment after the first."
+    )),
+    list("Each selected futility look must have a futility HR", paste(
+      "Enter a futility HR for every selected futility look."
+    )),
+    list("median_PFS_C must be less than median_OS_C", paste(
+      "Control median PFS must be shorter than control median OS."
+    )),
+    list("median_PFS_T must be less than median_OS_T", paste(
+      "Treatment median PFS must be shorter than treatment median OS."
+    )),
+    list("lambda_1_T must be positive", paste(
+      "The selected PFS and OS treatment effects are incompatible with ",
+      "the illness-to-death model. Adjust the treatment assumptions."
+    )),
+    list("R_s must be positive", paste(
+      "The accrual schedule cannot enroll the planned sample size. Adjust ",
+      "the segment start times or accrual rates."
+    )),
+    list("t_vec must be strictly increasing", paste(
+      "Accrual segment start times must be strictly increasing."
+    )),
+    list("t_vec must have length", paste(
+      "Configure one start time for each accrual segment after the first."
+    )),
+    list("d_PFS_ell must not exceed", paste(
+      "Target PFS events at each look must not exceed the total sample ",
+      "size."
+    )),
+    list("d_PFS_vec", paste(
+      "Target PFS events must be strictly increasing positive whole ",
+      "numbers."
+    )),
+    list("efficacy_looks", paste(
+      "Each endpoint must include the final look in its efficacy schedule."
+    )),
+    list("futility_looks", paste(
+      "Futility looks must be selected before the final analysis only."
+    )),
+    list("futility_HR", paste(
+      "Each futility hazard ratio must be a finite number greater than 1."
+    )),
+    list("alpha_spending_gamma", paste(
+      "Each HSD gamma must be a finite number from -40 inclusive to 40 ",
+      "exclusive."
+    )),
+    list("alpha_spending", paste(
+      "Select OF, Pocock, or HSD for each alpha spending function."
+    )),
+    list("n_sim must be at least 2", paste(
+      "Enter at least 2 simulation replicates when simulation is enabled."
+    )),
+    list("display_digits", paste(
+      "Result decimal places must be a whole number from 0 to 10."
+    )),
+    list("Assertion on 'n_T'", paste(
+      "Enter treatment group sample size as a positive whole number."
+    )),
+    list("Assertion on 'n_C'", paste(
+      "Enter control group sample size as a positive whole number."
+    )),
+    list("Assertion on 'median_PFS_C'", paste(
+      "Enter control median PFS as a positive finite number."
+    )),
+    list("Assertion on 'median_OS_C'", paste(
+      "Enter control median OS as a positive finite number."
+    )),
+    list("Assertion on 'median_PFS_T'", paste(
+      "Enter treatment median PFS as a positive finite number."
+    )),
+    list("Assertion on 'median_OS_T'", paste(
+      "Enter treatment median OS as a positive finite number."
+    )),
+    list("Assertion on 'HR_PFS'", paste(
+      "Enter PFS hazard ratio as a number greater than 0 and no greater ",
+      "than 1."
+    )),
+    list("Assertion on 'HR_OS'", paste(
+      "Enter OS hazard ratio as a number greater than 0 and no greater ",
+      "than 1."
+    )),
+    list("Assertion on 'v_vec'", paste(
+      "Enter a positive accrual rate for every accrual segment."
+    )),
+    list("Assertion on 'alpha'", paste(
+      "Enter one-sided alpha as a finite number strictly between 0 and 1."
+    )),
+    list("alpha must be strictly between", paste(
+      "Enter one-sided alpha as a finite number strictly between 0 and 1."
+    )),
+    list("Assertion on 'tol'", paste(
+      "Enter numerical tolerance as a positive finite number."
+    )),
+    list("Assertion on 'integration_seed'", paste(
+      "Enter the integration random seed as a non-negative whole number."
+    )),
+    list("Assertion on 'simulation_seed'", paste(
+      "Enter the simulation random seed as a non-negative whole number."
+    )),
+    list("Assertion on 'n_sim'", paste(
+      "Enter simulation replicates as a whole number of at least 2."
+    ))
+  )
+
+  for (mapping in mappings) {
+    if (grepl(mapping[[1]], message, fixed = TRUE)) {
+      return(mapping[[2]])
+    }
+  }
+
+  paste(
+    "The design could not be evaluated. Check the entered design inputs ",
+    "and try again."
+  )
+}
+
+pipeline_error_input_ids <- function(message) {
+  patterns <- list(
+    "d_PFS_vec" = "d_PFS_vec",
+    "median_PFS_C" = c("median_PFS_C", "median_OS_C"),
+    "median_OS_C" = c("median_PFS_C", "median_OS_C"),
+    "median_PFS_T" = c("median_PFS_T", "median_OS_T"),
+    "median_OS_T" = c("median_PFS_T", "median_OS_T"),
+    "lambda_1_T" = c("HR_PFS", "HR_OS", "median_PFS_T", "median_OS_T"),
+    "HR_PFS" = "HR_PFS",
+    "HR_OS" = "HR_OS",
+    "n_T" = "n_T",
+    "n_C" = "n_C",
+    "v_vec" = "accrual_segments",
+    "t_vec" = "accrual_segments",
+    "R_s" = "accrual_segments",
+    "alpha_spending_gamma_PFS" = "alpha_spending_gamma_PFS",
+    "alpha_spending_gamma_OS" = "alpha_spending_gamma_OS",
+    "alpha_spending" = c("alpha_spending_PFS", "alpha_spending_OS"),
+    "efficacy_looks" = "look_selection",
+    "futility_looks" = "look_selection",
+    "futility_HR" = "look_selection",
+    "alpha" = "alpha",
+    "tol" = "tol",
+    "integration_seed" = "integration_seed",
+    "simulation_seed" = "simulation_seed",
+    "n_sim" = "n_sim",
+    "display_digits" = "display_digits"
+  )
+
+  for (pattern in names(patterns)) {
+    if (grepl(pattern, message, fixed = TRUE)) {
+      return(patterns[[pattern]])
+    }
+  }
+
+  character(0)
+}
+
 ui <- fluidPage(
   tags$head(
     tags$style(HTML(
@@ -609,6 +870,69 @@ ui <- fluidPage(
         background-color: #eaf4f7;
         color: #15556d;
         font-weight: 600;
+      }
+      .app-status-error {
+        border-left-color: #b44747;
+        background-color: #fff4f4;
+        color: #923535;
+      }
+      .app-status-success {
+        border-left-color: #2c7a56;
+        background-color: #eff9f3;
+        color: #236345;
+      }
+      .required-marker {
+        margin-left: 4px;
+        color: #b44747;
+      }
+      .input-help {
+        margin-top: -10px;
+        margin-bottom: 10px;
+        color: #5b7180;
+        font-size: 12px;
+      }
+      .app-help {
+        margin: 4px 0 12px;
+        color: #406070;
+        font-size: 13px;
+      }
+      .required-inputs {
+        margin: 14px 0 4px;
+        padding: 10px 12px;
+        border: 1px solid #ead0a7;
+        border-radius: 6px;
+        background-color: #fffbf2;
+        color: #76511d;
+        font-size: 13px;
+      }
+      .required-inputs p {
+        margin: 0 0 5px;
+        font-weight: 600;
+      }
+      .required-inputs ul {
+        margin-bottom: 0;
+        padding-left: 18px;
+      }
+      .required-input-link {
+        color: #76511d;
+        text-decoration: underline;
+      }
+      .input-complete {
+        margin: 14px 0 4px;
+        padding: 10px 12px;
+        border: 1px solid #b7dbc6;
+        border-radius: 6px;
+        background-color: #f2fbf5;
+        color: #236345;
+        font-size: 13px;
+      }
+      .app-input-error input,
+      .app-input-error select {
+        border-color: #b44747;
+        box-shadow: 0 0 0 2px rgba(180, 71, 71, 0.14);
+      }
+      td.app-input-error {
+        background-color: #fff4f4;
       }
       .empty-state {
         margin: 24px 0;
@@ -674,6 +998,17 @@ ui <- fluidPage(
         background-color: #ffffff;
       }
       "
+    )),
+    tags$script(HTML(
+      "Shiny.addCustomMessageHandler('corrsurvInputError', function(ids) {
+        $('.app-input-error').removeClass('app-input-error');
+        ids.forEach(function(id) {
+          var element = $('#' + id);
+          element.closest('.form-group').addClass('app-input-error');
+          element.closest('td').addClass('app-input-error');
+          element.addClass('app-input-error');
+        });
+      });"
     ))
   ),
   div(class = "app-title", titlePanel("Group Sequential PFS and OS Design")),
@@ -683,33 +1018,49 @@ ui <- fluidPage(
       tags$h3("Basic parameters", class = "sidebar-section-title"),
       numericInput(
         "n_T",
-        "Treatment group sample size",
+        tagList("Treatment group sample size", tags$span(
+          "*", class = "required-marker"
+        )),
         value = NULL,
         min = 1,
         step = 1
       ),
+      tags$p("Number of participants assigned to treatment.",
+             class = "input-help"),
       numericInput(
         "n_C",
-        "Control group sample size",
+        tagList("Control group sample size", tags$span(
+          "*", class = "required-marker"
+        )),
         value = NULL,
         min = 1,
         step = 1
       ),
+      tags$p("Number of participants assigned to control.",
+             class = "input-help"),
       numericInput(
         "median_PFS_C",
-        "Control group median PFS",
+        tagList("Control group median PFS", tags$span(
+          "*", class = "required-marker"
+        )),
         value = NULL,
         min = 0
       ),
+      tags$p("Use the same time unit throughout the design.",
+             class = "input-help"),
       numericInput(
         "median_OS_C",
-        "Control group median OS",
+        tagList("Control group median OS", tags$span(
+          "*", class = "required-marker"
+        )),
         value = NULL,
         min = 0
       ),
       radioButtons(
         "effect_mode",
-        "Input type for treatment effect",
+        tagList("Input type for treatment effect", tags$span(
+          "*", class = "required-marker"
+        )),
         choices = c(
           "Hazard ratios" = "hr",
           "Median survival times" = "median"
@@ -753,12 +1104,15 @@ ui <- fluidPage(
       tags$h3("Patient accrual", class = "sidebar-section-title"),
       numericInput(
         "accrual_segments",
-        "Number of accrual segments",
+        tagList("Number of accrual segments", tags$span(
+          "*", class = "required-marker"
+        )),
         value = NULL,
         min = 1,
         step = 1
       ),
       tags$label("Accrual configuration", class = "control-label"),
+      tags$p("Start time is 0 for the first segment.", class = "input-help"),
       uiOutput("accrual_configuration"),
       tags$hr(),
       tags$h3(
@@ -773,8 +1127,12 @@ ui <- fluidPage(
       ),
       textInput(
         "d_PFS_vec",
-        "Target PFS events by look"
+        tagList("Target PFS events by look", tags$span(
+          "*", class = "required-marker"
+        ))
       ),
+      tags$p("Enter increasing event targets separated by commas, for ",
+             "example: 50, 100.", class = "input-help"),
       numericInput(
         "alpha",
         "One-sided alpha",
@@ -784,13 +1142,17 @@ ui <- fluidPage(
       ),
       selectInput(
         "alpha_spending_PFS",
-        "PFS alpha spending function",
+        tagList("PFS alpha spending function", tags$span(
+          "*", class = "required-marker"
+        )),
         choices = c("Select a spending function" = "", "OF", "Pocock", "HSD"),
         selected = ""
       ),
       selectInput(
         "alpha_spending_OS",
-        "OS alpha spending function",
+        tagList("OS alpha spending function", tags$span(
+          "*", class = "required-marker"
+        )),
         choices = c("Select a spending function" = "", "OF", "Pocock", "HSD"),
         selected = ""
       ),
@@ -810,6 +1172,14 @@ ui <- fluidPage(
       ),
       tags$label("Boundary configuration", class = "control-label"),
       uiOutput("look_selection"),
+      tags$details(
+        class = "app-help",
+        tags$summary("About sequential testing settings"),
+        tags$p(
+          "Select efficacy looks for each endpoint. Futility analyses are ",
+          "available before the final look only. HSD requires a gamma value."
+        )
+      ),
       tags$hr(),
       tags$h3("Advanced settings", class = "sidebar-section-title"),
       checkboxInput(
@@ -861,20 +1231,20 @@ ui <- fluidPage(
           step = 1
         )
       ),
-      actionButton(
-        "run",
-        "Run pipeline",
-        class = "btn-primary app-run-button"
-      )
+      tags$details(
+        class = "app-help",
+        tags$summary("About advanced settings"),
+        tags$p(
+          "Simulation compares Monte Carlo results with the closed-form ",
+          "calculation. Random seeds make numerical results reproducible."
+        )
+      ),
+      uiOutput("run_control")
     ),
     mainPanel(
       width = 8,
-      div(class = "app-status", textOutput("status")),
-      downloadButton(
-        "download_tables",
-        "Download tables (CSV)",
-        class = "app-download-button"
-      ),
+      uiOutput("status"),
+      uiOutput("download_control"),
       tabsetPanel(
         id = "main_tabs",
         tabPanel(
@@ -957,6 +1327,44 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  required_inputs <- reactive({
+    required_input_labels(input)
+  })
+
+  output$run_control <- renderUI({
+    missing <- required_inputs()
+
+    if (length(missing) > 0) {
+      completion_message <- tags$div(
+        class = "required-inputs",
+        tags$p("Complete the required inputs before running the pipeline."),
+        tags$ul(lapply(names(missing), function(id) {
+          tags$li(tags$a(
+            missing[[id]],
+            href = paste0("#", id),
+            class = "required-input-link"
+          ))
+        }))
+      )
+    } else {
+      completion_message <- tags$div(
+        class = "input-complete",
+        "All required inputs are complete. Run the pipeline to validate "
+          , "the design."
+      )
+    }
+
+    tagList(
+      completion_message,
+      actionButton(
+        "run",
+        "Run pipeline",
+        class = "btn-primary app-run-button",
+        disabled = if (length(missing) > 0) "disabled" else NULL
+      )
+    )
+  })
+
   output$accrual_configuration <- renderUI({
     if (is.null(input$accrual_segments) ||
         length(input$accrual_segments) != 1 ||
@@ -1014,7 +1422,12 @@ server <- function(input, output, session) {
           list(state = state, error = NULL)
         },
         error = function(error) {
-          list(state = NULL, error = conditionMessage(error))
+          error_message <- conditionMessage(error)
+          list(
+            state = NULL,
+            error = translate_pipeline_error(error_message),
+            error_input_ids = pipeline_error_input_ids(error_message)
+          )
         }
       )
     },
@@ -1027,6 +1440,20 @@ server <- function(input, output, session) {
     calculation_result$state
   })
 
+  observeEvent(calculation(), {
+    calculation_result <- calculation()
+    error_input_ids <- if (is.null(calculation_result$error)) {
+      character(0)
+    } else {
+      calculation_result$error_input_ids
+    }
+
+    session$sendCustomMessage("corrsurvInputError", error_input_ids)
+    if (is.null(calculation_result$error)) {
+      updateTabsetPanel(session, "main_tabs", selected = "Results")
+    }
+  }, ignoreNULL = TRUE)
+
   empty_state <- function(message, error = FALSE) {
     class_name <- if (error) {
       "empty-state empty-state-error"
@@ -1036,18 +1463,47 @@ server <- function(input, output, session) {
     tags$div(class = class_name, tags$p(message))
   }
 
-  output$status <- renderText({
+  output$status <- renderUI({
     calculation_result <- calculation()
 
     if (is.null(calculation_result)) {
-      return("Enter the design inputs and run the pipeline.")
+      return(tags$div(
+        class = "app-status",
+        "Complete the required design inputs, then run the pipeline."
+      ))
     }
 
     if (!is.null(calculation_result$error)) {
-      return(paste("Error:", calculation_result$error))
+      return(tags$div(
+        class = "app-status app-status-error",
+        calculation_result$error
+      ))
     }
 
-    "Pipeline completed."
+    tags$div(
+      class = "app-status app-status-success",
+      "Pipeline completed. Review the results or download the tables."
+    )
+  })
+
+  output$download_control <- renderUI({
+    calculation_result <- calculation()
+    is_complete <- !is.null(calculation_result) &&
+      is.null(calculation_result$error)
+
+    if (!is_complete) {
+      return(tags$button(
+        "Download tables (CSV)",
+        class = "btn btn-default app-download-button",
+        disabled = "disabled"
+      ))
+    }
+
+    downloadButton(
+      "download_tables",
+      "Download tables (CSV)",
+      class = "app-download-button"
+    )
   })
 
   output$design_panel <- renderUI({
@@ -1061,7 +1517,8 @@ server <- function(input, output, session) {
 
     if (!is.null(calculation_result$error)) {
       return(empty_state(
-        "Resolve the input error before viewing the design.",
+        "Review the message above, update the design inputs, and run the "
+          , "pipeline again.",
         error = TRUE
       ))
     }
@@ -1091,7 +1548,8 @@ server <- function(input, output, session) {
 
     if (!is.null(calculation_result$error)) {
       return(empty_state(
-        "Resolve the input error before viewing the results.",
+        "Review the message above, update the design inputs, and run the "
+          , "pipeline again.",
         error = TRUE
       ))
     }
