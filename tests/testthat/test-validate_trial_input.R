@@ -91,6 +91,28 @@ test_that("piecewise accrual derives segment quantities", {
   expect_equal(design$L, 2)
 })
 
+test_that("three-segment accrual derives all segment durations", {
+  state <- validate_test_input(
+    n_T = 100,
+    n_C = 100,
+    d_PFS_vec = c(50, 100),
+    t_vec = c(4, 8),
+    v_vec = c(10, 15, 25),
+    median_PFS_C = log(2) / 0.25,
+    median_OS_C = log(2) / 0.10,
+    median_PFS_T = log(2) / 0.15,
+    median_OS_T = log(2) / 0.05,
+    alpha_spending_PFS = "OF",
+    alpha_spending_OS = "Pocock"
+  )
+  design <- state$design
+
+  expect_equal(design$R_vec, c(4, 4, 4))
+  expect_equal(design$t_vec, c(4, 8, 12))
+  expect_equal(design$p_vec, c(0.05, 0.075, 0.125))
+  expect_equal(design$R, 12)
+})
+
 test_that("valid futility HR and HSD specifications are normalized", {
   common <- list(
     n_T = 100,

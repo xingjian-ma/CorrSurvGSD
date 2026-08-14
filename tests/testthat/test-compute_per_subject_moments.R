@@ -204,6 +204,53 @@ test_that("cross-product means match all blueprint formulas", {
   expect_equal(actual, expected, tolerance = 1e-8)
 })
 
+test_that("cross-product means cover reverse look order", {
+  A1 <- 12
+  A2 <- 6
+  B <- 6
+  b <- 1
+  Lam <- 0.15
+  l1 <- 0.1
+  l2 <- 0.05
+  A_star <- (l1 * A1 + l2 * A2) / Lam
+  i1 <- I_1(B, b, pw_t, pw_p)
+  i4_a2_l2 <- I_4(A2, B, b, l2, pw_t, pw_p)
+  i4_a2_lam <- I_4(A2, B, b, Lam, pw_t, pw_p)
+  i5_a2 <- I_5(A2, B, b, Lam, pw_t, pw_p)
+  decay <- exp(-Lam * (A1 - A2))
+
+  expected <- c(
+    delta_delta = i1 - i4_a2_l2,
+    delta_time = (i1 - i4_a2_l2) / l2 - decay * i5_a2,
+    time_delta = (i1 - i4_a2_lam) / Lam -
+      (i4_a2_l2 - i4_a2_lam) / l1,
+    time_time = (i1 - i4_a2_lam) / Lam^2 -
+      decay * i5_a2 / Lam +
+      (i1 - i4_a2_lam) / (l2 * Lam) -
+      (i4_a2_l2 - i4_a2_lam) / (l1 * l2)
+  )
+  actual <- c(
+    delta_delta = compute_cross_product_mean(
+      "delta", "delta", A1, A2, B, b, A_star,
+      Lam, l1, l2, pw_t, pw_p
+    ),
+    delta_time = compute_cross_product_mean(
+      "delta", "time", A1, A2, B, b, A_star,
+      Lam, l1, l2, pw_t, pw_p
+    ),
+    time_delta = compute_cross_product_mean(
+      "time", "delta", A1, A2, B, b, A_star,
+      Lam, l1, l2, pw_t, pw_p
+    ),
+    time_time = compute_cross_product_mean(
+      "time", "time", A1, A2, B, b, A_star,
+      Lam, l1, l2, pw_t, pw_p
+    )
+  )
+
+  expect_equal(actual, expected, tolerance = 1e-8)
+})
+
 test_that("computed moments satisfy mean and covariance invariants", {
   fixture <- local_moments_fixture()
   design <- fixture$design
@@ -273,30 +320,35 @@ test_that("cross-look covariances use cross moments and means", {
   fixture <- local_moments_fixture()
   design <- fixture$design
   moments <- fixture$moments
-  A1 <- fixture$A_vec[1]
-  A2 <- fixture$A_vec[2]
-  B <- min(A1, fixture$R)
-  b <- find_segment(B, fixture$t_vec)
 
   for (g in fixture$groups) {
     lam1 <- if (g == "T") design$lambda_1_T else design$lambda_1_C
     lam2 <- if (g == "T") design$lambda_2_T else design$lambda_2_C
     Lam <- if (g == "T") design$Lambda_T else design$Lambda_C
-    A_star <- (lam1 * A1 + lam2 * A2) / Lam
 
-    for (v1 in fixture$types) {
-      for (v2 in fixture$types) {
-        cross_mean <- compute_cross_product_mean(
-          v1, v2, A1, A2, B, b, A_star, Lam, lam1, lam2,
-          fixture$t_vec, fixture$p_vec
-        )
-        mean_1 <- moments$single_look_means[g, v1, "PFS", 1]
-        mean_2 <- moments$single_look_means[g, v2, "OS", 2]
-        expect_equal(
-          moments$cross_look_covariances[g, v1, v2, 1, 2],
-          cross_mean - mean_1 * mean_2,
-          tolerance = 1e-8
-        )
+    for (ell1 in seq_len(fixture$L)) {
+      for (ell2 in seq_len(fixture$L)) {
+        A1 <- fixture$A_vec[ell1]
+        A2 <- fixture$A_vec[ell2]
+        B <- min(A1, A2, fixture$R)
+        b <- find_segment(B, fixture$t_vec)
+        A_star <- (lam1 * A1 + lam2 * A2) / Lam
+
+        for (v1 in fixture$types) {
+          for (v2 in fixture$types) {
+            cross_mean <- compute_cross_product_mean(
+              v1, v2, A1, A2, B, b, A_star, Lam, lam1, lam2,
+              fixture$t_vec, fixture$p_vec
+            )
+            mean_1 <- moments$single_look_means[g, v1, "PFS", ell1]
+            mean_2 <- moments$single_look_means[g, v2, "OS", ell2]
+            expect_equal(
+              moments$cross_look_covariances[g, v1, v2, ell1, ell2],
+              cross_mean - mean_1 * mean_2,
+              tolerance = 1e-8
+            )
+          }
+        }
       }
     }
   }

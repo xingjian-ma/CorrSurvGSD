@@ -101,6 +101,20 @@ test_that("joint power respects OS-primary hierarchy", {
   expect_equal(unname(result[2, 2]), 0.125)
   expect_true(is.na(result[2, 1]))
   expect_equal(sum(result, na.rm = TRUE), 0.5)
+
+  blocked_boundary <- boundary
+  blocked_boundary[c(2, 3), "efficacy"] <- Inf
+  blocked <- calculate_joint_power(
+    joint_mean_vector = rep(0, 4),
+    joint_correlation_matrix = diag(4),
+    boundary = blocked_boundary,
+    hierarchy_order = c(primary = "OS", secondary = "PFS"),
+    L = 2,
+    seed = 777
+  )
+  expect_equal(unname(blocked[1, 1]), 0)
+  expect_equal(unname(blocked[1, 2]), 0)
+  expect_equal(unname(blocked[2, 2]), 0)
 })
 
 test_that("closed-form state contains boundaries and power results", {

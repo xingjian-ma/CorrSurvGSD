@@ -13,13 +13,16 @@ test_that("run_pipeline returns a complete theoretical result", {
     alpha_spending_PFS = "OF",
     alpha_spending_OS = "Pocock",
     efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
-    futility_looks = list(PFS = integer(0), OS = integer(0)),
+    futility_looks = list(PFS = 1, OS = integer(0)),
     integration_seed = 777
   )
 
   expect_s3_class(result, "trial_state")
   expect_false(result$options$simulation)
   expect_equal(result$design$L, 2)
+  expect_true(is.finite(result$design$boundary["PFS_1", "futility"]))
+  expect_true(is.infinite(result$design$boundary["PFS_2", "futility"]))
+  expect_true(all(is.infinite(result$design$boundary[c("OS_1", "OS_2"), "futility"])))
   expect_equal(result$design$efficacy_looks,
                list(PFS = c(1L, 2L), OS = c(1L, 2L)))
   expect_named(
