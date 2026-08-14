@@ -166,13 +166,18 @@ test_that("run_simulation stores empirical results without mutation", {
         hierarchy_order = c(primary = "PFS", secondary = "OS")
       )
     ),
-    options = list(n_sim = 6, seed = 456),
+    options = list(n_sim = 6, simulation_seed = 456),
     theoretical_results = list(marker = "unchanged")
   )
   result <- run_simulation(state)
+  repeated_result <- run_simulation(state)
 
   expect_identical(result$design, state$design)
   expect_identical(result$theoretical_results, state$theoretical_results)
+  expect_identical(
+    result$empirical_results,
+    repeated_result$empirical_results
+  )
   expect_named(
     result$empirical_results,
     c(

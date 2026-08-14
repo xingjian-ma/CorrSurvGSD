@@ -2,63 +2,29 @@
 #
 # Run with `devtools::test()` from the package root.
 #
-# Setup: piecewise accrual (s=2), multi-look (L=2), asymmetric groups.
-
-# =================================================================
-# Shared setup — piecewise + multi-look + asymmetric
-# =================================================================
-
-state <- make_test_state(
-  n_T = 80,
-  n_C = 120,
-  d_PFS_vec = c(30, 60),
-  t_vec = c(6),
-  v_vec = c(200 / 12, 200 / 12),
-  median_PFS_C = log(2) / 0.25,
-  median_OS_C = log(2) / 0.10,
-  median_PFS_T = log(2) / 0.08,
-  median_OS_T = log(2) / 0.03,
-  alpha_spending_PFS = "OF",
-  alpha_spending_OS = "Pocock"
-)
-design <- state$design
-moments <- state$moments
-R_mat <- state$theoretical_results$joint_correlation_matrix
-
-L      <- design$L
-d_PFS  <- design$d_PFS_vec
-n_T    <- design$n_T
-n_C    <- design$n_C
-sm     <- moments$single_look_means
-sc     <- moments$single_look_covariances
-cc     <- moments$cross_look_covariances
-groups <- c("T", "C")
-
-# helper: compute d_OS_vec from moments
-d_OS <- numeric(L)
-for (ell in seq_len(L))
-  d_OS[ell] <- n_T * sm["T", "delta", "OS", ell] +
-              n_C * sm["C", "delta", "OS", ell]
-
 # =================================================================
 # 1. Dimensions and structure
 # =================================================================
 
 test_that("output is (2L)×(2L)", {
+  local_correlation_fixture()
   expect_equal(dim(R_mat), c(2 * L, 2 * L))
 })
 
 test_that("dimnames are PFS_i and OS_i", {
+  local_correlation_fixture()
   nm <- c(paste0("PFS_", seq_len(L)), paste0("OS_", seq_len(L)))
   expect_equal(rownames(R_mat), nm)
   expect_equal(colnames(R_mat), nm)
 })
 
 test_that("matrix is symmetric", {
+  local_correlation_fixture()
   expect_true(isSymmetric(R_mat))
 })
 
 test_that("diagonal is all ones", {
+  local_correlation_fixture()
   expect_equal(as.vector(diag(R_mat)), rep(1, 2 * L))
 })
 
@@ -67,11 +33,13 @@ test_that("diagonal is all ones", {
 # =================================================================
 
 test_that("d_OS_vec is positive and increasing", {
+  local_correlation_fixture()
   expect_true(all(d_OS > 0))
   expect_gt(d_OS[2], d_OS[1])
 })
 
 test_that("d_OS_ell <= n (cannot exceed sample size)", {
+  local_correlation_fixture()
   expect_true(all(d_OS <= design$n))
 })
 
@@ -80,6 +48,7 @@ test_that("d_OS_ell <= n (cannot exceed sample size)", {
 # =================================================================
 
 test_that("PFS block matches canonical G-S √(d_min/d_max)", {
+  local_correlation_fixture()
   for (ell1 in seq_len(L))
     for (ell2 in seq_len(L)) {
       expected <- sqrt(d_PFS[min(ell1, ell2)] / d_PFS[max(ell1, ell2)])
@@ -92,6 +61,7 @@ test_that("PFS block matches canonical G-S √(d_min/d_max)", {
 # =================================================================
 
 test_that("OS block matches canonical G-S √(d_min/d_max)", {
+  local_correlation_fixture()
   for (ell1 in seq_len(L))
     for (ell2 in seq_len(L)) {
       expected <- sqrt(d_OS[min(ell1, ell2)] / d_OS[max(ell1, ell2)])
@@ -103,18 +73,20 @@ test_that("OS block matches canonical G-S √(d_min/d_max)", {
 # 5. Cross-endpoint block
 # =================================================================
 
- test_that("cross-endpoint block is finite and symmetric through transpose", {
-   cross <- R_mat[seq_len(L), L + seq_len(L), drop = FALSE]
-   expect_true(all(is.finite(cross)))
-   expect_equal(cross, t(R_mat[L + seq_len(L), seq_len(L), drop = FALSE]))
-   expect_true(any(cross != 0))
- })
+test_that("cross-endpoint block is finite and symmetric through transpose", {
+  local_correlation_fixture()
+  cross <- R_mat[seq_len(L), L + seq_len(L), drop = FALSE]
+  expect_true(all(is.finite(cross)))
+  expect_equal(cross, t(R_mat[L + seq_len(L), seq_len(L), drop = FALSE]))
+  expect_true(any(cross != 0))
+})
 
 # =================================================================
 # 6. Cross-endpoint — manual delta-method verification
 # =================================================================
 
 test_that("cross-endpoint ρ(PFS₁, OS₂) matches manual delta method", {
+  local_correlation_fixture()
   ell1 <- 1
   ell2 <- 2
 
@@ -166,6 +138,7 @@ test_that("cross-endpoint ρ(PFS₁, OS₂) matches manual delta method", {
 # =================================================================
 
 test_that("correlation matrix is positive definite", {
+  local_correlation_fixture()
   ev <- eigen(R_mat, symmetric = TRUE, only.values = TRUE)$values
   expect_true(all(ev > 0))
 })
@@ -175,6 +148,7 @@ test_that("correlation matrix is positive definite", {
 # =================================================================
 
 test_that("all off-diagonal entries in [0, 1]", {
+  local_correlation_fixture()
   off <- R_mat[upper.tri(R_mat)]
   expect_true(all(off >= 0))
   expect_true(all(off <= 1))

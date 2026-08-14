@@ -2,42 +2,12 @@
 #
 # Run with `devtools::test()` from the package root.
 #
-# Setup: piecewise accrual (s=2), multi-look (L=2), asymmetric groups.
-
-# =================================================================
-# Shared setup — piecewise + multi-look + asymmetric
-# =================================================================
-
-state <- make_test_state(
-  n_T = 80,
-  n_C = 120,
-  d_PFS_vec = c(30, 60),
-  t_vec = c(6),
-  v_vec = c(200 / 12, 200 / 12),
-  median_PFS_C = log(2) / 0.25,
-  median_OS_C = log(2) / 0.10,
-  median_PFS_T = log(2) / 0.08,
-  median_OS_T = log(2) / 0.03,
-  alpha_spending_PFS = "OF",
-  alpha_spending_OS = "Pocock"
-)
-design <- state$design
-moments <- state$moments
-
-A_vec  <- design$A_vec
-R      <- design$R
-t_vec  <- design$t_vec
-p_vec  <- design$p_vec
-L      <- design$L
-groups <- c("T", "C")
-types  <- c("delta", "time")
-eps    <- c("PFS", "OS")
-
 # =================================================================
 # 1. Array dimensions
 # =================================================================
 
 test_that("single_look_means dims", {
+  local_moments_fixture()
   expect_equal(dim(moments$single_look_means), c(2, 2, 2, L))
   expect_equal(dimnames(moments$single_look_means)[[1]], groups)
   expect_equal(dimnames(moments$single_look_means)[[2]], types)
@@ -45,6 +15,7 @@ test_that("single_look_means dims", {
 })
 
 test_that("single_look_covariances dims", {
+  local_moments_fixture()
   expect_equal(dim(moments$single_look_covariances), c(2, 2, 2, 2, L))
   expect_equal(dimnames(moments$single_look_covariances)[[1]], groups)
   expect_equal(dimnames(moments$single_look_covariances)[[2]], types)
@@ -53,6 +24,7 @@ test_that("single_look_covariances dims", {
 })
 
 test_that("cross_look_covariances dims", {
+  local_moments_fixture()
   expect_equal(dim(moments$cross_look_covariances), c(2, 2, 2, L, L))
   expect_equal(dimnames(moments$cross_look_covariances)[[1]], groups)
   expect_equal(dimnames(moments$cross_look_covariances)[[2]], types)
@@ -64,10 +36,12 @@ test_that("cross_look_covariances dims", {
 # =================================================================
 
 test_that("d_PFS_vec matches input", {
+  local_moments_fixture()
   expect_equal(design$d_PFS_vec, c(30, 60), tolerance = 1e-6)
 })
 
 test_that("A_vec is strictly increasing", {
+  local_moments_fixture()
   expect_gt(A_vec[2], A_vec[1])
 })
 
@@ -305,6 +279,7 @@ test_that("cross_product_mean (T,T) matches blueprint", {
 # =================================================================
 
 test_that("all m_delta in [0, 1]", {
+  local_moments_fixture()
   for (g in groups) for (ep in eps) for (ell in seq_len(L)) {
     val <- moments$single_look_means[g, "delta", ep, ell]
     expect_gte(val, 0)
@@ -313,6 +288,7 @@ test_that("all m_delta in [0, 1]", {
 })
 
 test_that("all m_T are positive", {
+  local_moments_fixture()
   for (g in groups) for (ep in eps) for (ell in seq_len(L)) {
     val <- moments$single_look_means[g, "time", ep, ell]
     expect_gt(val, 0)
@@ -320,6 +296,7 @@ test_that("all m_T are positive", {
 })
 
 test_that("m_delta increases across looks", {
+  local_moments_fixture()
   for (g in groups) for (ep in eps) {
     expect_gt(moments$single_look_means[g, "delta", ep, 2],
               moments$single_look_means[g, "delta", ep, 1])
@@ -331,6 +308,7 @@ test_that("m_delta increases across looks", {
 # =================================================================
 
 test_that("sigma2_delta = m_delta * (1 - m_delta)", {
+  local_moments_fixture()
   for (g in groups) for (ep in eps) for (ell in seq_len(L)) {
     md  <- moments$single_look_means[g, "delta", ep, ell]
     sig <- moments$single_look_covariances[g, "delta", "delta", ep, ell]
@@ -339,6 +317,7 @@ test_that("sigma2_delta = m_delta * (1 - m_delta)", {
 })
 
 test_that("sigma2_T = m_T2 - m_T^2", {
+  local_moments_fixture()
   for (g in groups) for (ep in eps) for (ell in seq_len(L)) {
     A   <- A_vec[ell]
     B   <- min(A, R)
@@ -356,6 +335,7 @@ test_that("sigma2_T = m_T2 - m_T^2", {
 })
 
 test_that("single_look_cov is symmetric", {
+  local_moments_fixture()
   for (g in groups) for (ep in eps) for (ell in seq_len(L)) {
     expect_equal(moments$single_look_covariances[g, "delta", "time", ep, ell],
                  moments$single_look_covariances[g, "time", "delta", ep, ell])
@@ -363,6 +343,7 @@ test_that("single_look_cov is symmetric", {
 })
 
 test_that("cov(delta,T) = mv - m_delta * m_T", {
+  local_moments_fixture()
   for (g in groups) for (ell in seq_len(L)) {
     A  <- A_vec[ell]
     B  <- min(A, R)
@@ -381,6 +362,7 @@ test_that("cov(delta,T) = mv - m_delta * m_T", {
 # =================================================================
 
 test_that("cross_look cov = mv - m_PFS_ell1 * m_OS_ell2", {
+  local_moments_fixture()
   for (g in groups) {
     lam1 <- if (g == "T") design$lambda_1_T else design$lambda_1_C
     lam2 <- if (g == "T") design$lambda_2_T else design$lambda_2_C

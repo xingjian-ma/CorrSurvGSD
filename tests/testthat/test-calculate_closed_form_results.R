@@ -2,25 +2,6 @@
 #
 # Run with `devtools::test()` from the package root.
 
-state <- make_test_state(
-  stage = "closed",
-  n_T = 100,
-  n_C = 100,
-  d_PFS_vec = c(50, 100),
-  v_vec = c(200 / 12),
-  median_PFS_C = log(2) / 0.25,
-  median_OS_C = log(2) / 0.10,
-  HR_PFS = 0.8,
-  HR_OS = 0.85,
-  alpha_spending_PFS = "OF",
-  alpha_spending_OS = "OF",
-  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
-  futility_looks = list(PFS = 1, OS = integer(0)),
-  futility_HR = list(PFS = 1.2, OS = numeric(0))
-)
-
-result <- state
-
 # =================================================================
 # 1. Boundary and drift helpers
 # =================================================================
@@ -156,6 +137,22 @@ test_that("joint power supports OS-primary hierarchy", {
 # =================================================================
 
 test_that("calculate_closed_form_results appends all required results", {
+  result <- make_test_state(
+    stage = "closed",
+    n_T = 100,
+    n_C = 100,
+    d_PFS_vec = c(50, 100),
+    v_vec = c(200 / 12),
+    median_PFS_C = log(2) / 0.25,
+    median_OS_C = log(2) / 0.10,
+    HR_PFS = 0.8,
+    HR_OS = 0.85,
+    alpha_spending_PFS = "OF",
+    alpha_spending_OS = "OF",
+    efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
+    futility_looks = list(PFS = 1, OS = integer(0)),
+    futility_HR = list(PFS = 1.2, OS = numeric(0))
+  )
   expected_mean <- c(
     mean_drift(0.8, 1, result$design$d_PFS_vec),
     mean_drift(0.85, 1, result$design$d_OS_vec)
@@ -165,6 +162,31 @@ test_that("calculate_closed_form_results appends all required results", {
 
   expect_equal(dim(result$design$boundary), c(4, 2))
   expect_true(all(is.finite(result$design$boundary[, "efficacy"])))
+  expect_equal(dim(result$design$boundary_HR), c(4, 2))
+  expect_equal(dim(result$design$boundary_p), c(4, 2))
+  expect_equal(
+    dimnames(result$design$boundary_HR),
+    dimnames(result$design$boundary)
+  )
+  expect_equal(
+    dimnames(result$design$boundary_p),
+    dimnames(result$design$boundary)
+  )
+  finite_boundary <- is.finite(result$design$boundary)
+  expect_true(all(is.finite(result$design$boundary_HR[finite_boundary])))
+  expect_true(all(is.finite(result$design$boundary_p[finite_boundary])))
+  expect_true(all(is.na(result$design$boundary_HR[!finite_boundary])))
+  expect_true(all(is.na(result$design$boundary_p[!finite_boundary])))
+  efficacy_scale <- sqrt(result$design$d_PFS_vec[1] * result$design$r /
+                         (1 + result$design$r)^2)
+  expect_equal(
+    result$design$boundary_HR[1, "efficacy"],
+    exp(-result$design$boundary[1, "efficacy"] / efficacy_scale)
+  )
+  expect_equal(
+    result$design$boundary_p[1, "efficacy"],
+    stats::pnorm(result$design$boundary[1, "efficacy"], lower.tail = FALSE)
+  )
   expect_equal(result$theoretical_results$joint_mean_vector, expected_mean)
   expect_equal(
     unname(result$design$boundary[1:2, "futility"]),

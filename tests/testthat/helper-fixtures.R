@@ -50,8 +50,10 @@ make_test_state <- function(stage = "correlation", ...) {
   if (stage %in% c("moments", "correlation", "closed")) {
     state <- calculate_calendar_cutoffs(state)
   }
-  if (stage %in% c("correlation", "closed")) {
+  if (stage %in% c("moments", "correlation", "closed")) {
     state <- compute_per_subject_moments(state)
+  }
+  if (stage %in% c("correlation", "closed")) {
     state <- construct_joint_correlation_matrix(state)
   }
   if (stage == "closed") {
@@ -59,4 +61,82 @@ make_test_state <- function(stage = "correlation", ...) {
   }
 
   state
+}
+
+local_moments_fixture <- function(env = parent.frame()) {
+  state <- make_test_state(
+    stage = "moments",
+    n_T = 80,
+    n_C = 120,
+    d_PFS_vec = c(30, 60),
+    t_vec = c(6),
+    v_vec = c(200 / 12, 200 / 12),
+    median_PFS_C = log(2) / 0.25,
+    median_OS_C = log(2) / 0.10,
+    median_PFS_T = log(2) / 0.08,
+    median_OS_T = log(2) / 0.03,
+    alpha_spending_PFS = "OF",
+    alpha_spending_OS = "Pocock"
+  )
+  design <- state$design
+  fixture <- list(
+    state = state,
+    design = design,
+    moments = state$moments,
+    A_vec = design$A_vec,
+    R = design$R,
+    t_vec = design$t_vec,
+    p_vec = design$p_vec,
+    L = design$L,
+    groups = c("T", "C"),
+    types = c("delta", "time"),
+    eps = c("PFS", "OS")
+  )
+  list2env(fixture, envir = env)
+  invisible(fixture)
+}
+
+local_correlation_fixture <- function(env = parent.frame()) {
+  state <- make_test_state(
+    n_T = 80,
+    n_C = 120,
+    d_PFS_vec = c(30, 60),
+    t_vec = c(6),
+    v_vec = c(200 / 12, 200 / 12),
+    median_PFS_C = log(2) / 0.25,
+    median_OS_C = log(2) / 0.10,
+    median_PFS_T = log(2) / 0.08,
+    median_OS_T = log(2) / 0.03,
+    alpha_spending_PFS = "OF",
+    alpha_spending_OS = "Pocock"
+  )
+  design <- state$design
+  moments <- state$moments
+  L <- design$L
+  sm <- moments$single_look_means
+  d_OS <- vapply(
+    seq_len(L),
+    function(ell) {
+      design$n_T * sm["T", "delta", "OS", ell] +
+        design$n_C * sm["C", "delta", "OS", ell]
+    },
+    numeric(1)
+  )
+  fixture <- list(
+    state = state,
+    design = design,
+    moments = moments,
+    R_mat = state$theoretical_results$joint_correlation_matrix,
+    L = L,
+    d_PFS = design$d_PFS_vec,
+    n_T = design$n_T,
+    n_C = design$n_C,
+    sm = sm,
+    sc = moments$single_look_covariances,
+    cc = moments$cross_look_covariances,
+    groups = c("T", "C"),
+    d_OS = d_OS
+  )
+  list2env(fixture, envir = env)
+  invisible(fixture)
 }
