@@ -351,8 +351,8 @@ accrual_table <- function(segment_count) {
     style = "table-layout: fixed; width: 100%;",
     tags$thead(tags$tr(
       tags$th("Segment"),
-      tags$th("Start time"),
-      tags$th("Accrual rate")
+      tags$th("Start time (calendar time)"),
+      tags$th("Accrual rate (participants per time unit)")
     )),
     do.call(tags$tbody, rows)
   )
@@ -452,8 +452,8 @@ look_selection_table <- function(L) {
     tags$thead(tags$tr(
       tags$th("Endpoint"),
       tags$th("Look"),
-      tags$th("Efficacy"),
-      tags$th("Futility"),
+      tags$th("Efficacy (test for benefit)"),
+      tags$th("Futility (stop for lack of benefit)"),
       tags$th("Futility HR")
     )),
     do.call(tags$tbody, rows)
@@ -1068,6 +1068,11 @@ ui <- fluidPage(
         selected = character(0),
         inline = TRUE
       ),
+      tags$p(
+        "Choose Hazard ratios to specify treatment-to-control effects, or ",
+        "Median survival times to specify treatment-arm medians directly.",
+        class = "input-help"
+      ),
       conditionalPanel(
         "input.effect_mode == 'hr'",
         numericInput(
@@ -1077,12 +1082,22 @@ ui <- fluidPage(
           min = 0,
           max = 1
         ),
+        tags$p(
+          "Treatment-to-control PFS hazard ratio. Values below 1 indicate ",
+          "a lower progression or death hazard with treatment.",
+          class = "input-help"
+        ),
         numericInput(
           "HR_OS",
           "OS hazard ratio",
           value = NULL,
           min = 0,
           max = 1
+        ),
+        tags$p(
+          "Treatment-to-control OS hazard ratio. Values below 1 indicate ",
+          "a lower death hazard with treatment.",
+          class = "input-help"
         )
       ),
       conditionalPanel(
@@ -1093,11 +1108,21 @@ ui <- fluidPage(
           value = NULL,
           min = 0
         ),
+        tags$p(
+          "Median PFS expected in the treatment group, in the same time ",
+          "unit as the control medians.",
+          class = "input-help"
+        ),
         numericInput(
           "median_OS_T",
           "Treatment group median OS",
           value = NULL,
           min = 0
+        ),
+        tags$p(
+          "Median OS expected in the treatment group, in the same time ",
+          "unit as the control medians.",
+          class = "input-help"
         )
       ),
       tags$hr(),
@@ -1111,8 +1136,17 @@ ui <- fluidPage(
         min = 1,
         step = 1
       ),
+      tags$p(
+        "Use one segment for constant accrual, or multiple segments when ",
+        "the accrual rate changes over calendar time.",
+        class = "input-help"
+      ),
       tags$label("Accrual configuration", class = "control-label"),
-      tags$p("Start time is 0 for the first segment.", class = "input-help"),
+      tags$p(
+        "Start time is 0 for the first segment. Later start times must use ",
+        "the same calendar-time unit as the survival medians.",
+        class = "input-help"
+      ),
       uiOutput("accrual_configuration"),
       tags$hr(),
       tags$h3(
@@ -1124,6 +1158,11 @@ ui <- fluidPage(
         "Primary endpoint",
         choices = c("PFS", "OS"),
         selected = "PFS"
+      ),
+      tags$p(
+        "The primary endpoint is tested first. The secondary endpoint is ",
+        "tested only after the primary endpoint is rejected.",
+        class = "input-help"
       ),
       textInput(
         "d_PFS_vec",
@@ -1140,6 +1179,11 @@ ui <- fluidPage(
         min = 0,
         max = 1
       ),
+      tags$p(
+        "One-sided family-wise type-I error level for the gatekeeping ",
+        "testing procedure.",
+        class = "input-help"
+      ),
       selectInput(
         "alpha_spending_PFS",
         tagList("PFS alpha spending function", tags$span(
@@ -1147,6 +1191,10 @@ ui <- fluidPage(
         )),
         choices = c("Select a spending function" = "", "OF", "Pocock", "HSD"),
         selected = ""
+      ),
+      tags$p(
+        "Select the alpha-spending family for PFS efficacy boundaries.",
+        class = "input-help"
       ),
       selectInput(
         "alpha_spending_OS",
@@ -1156,11 +1204,20 @@ ui <- fluidPage(
         choices = c("Select a spending function" = "", "OF", "Pocock", "HSD"),
         selected = ""
       ),
+      tags$p(
+        "Select the alpha-spending family for OS efficacy boundaries.",
+        class = "input-help"
+      ),
       conditionalPanel(
         "input.alpha_spending_PFS == 'HSD'",
         textInput(
           "alpha_spending_gamma_PFS",
           "PFS HSD gamma"
+        ),
+        tags$p(
+          "HSD shape parameter for PFS. Negative values spend more alpha ",
+          "later; positive values spend more alpha earlier.",
+          class = "input-help"
         )
       ),
       conditionalPanel(
@@ -1168,6 +1225,11 @@ ui <- fluidPage(
         textInput(
           "alpha_spending_gamma_OS",
           "OS HSD gamma"
+        ),
+        tags$p(
+          "HSD shape parameter for OS. Negative values spend more alpha ",
+          "later; positive values spend more alpha earlier.",
+          class = "input-help"
         )
       ),
       tags$label("Boundary configuration", class = "control-label"),
@@ -1186,6 +1248,11 @@ ui <- fluidPage(
         "simulation",
         "Run simulation"
       ),
+      tags$p(
+        "Run a Monte Carlo simulation to compare empirical and theoretical ",
+        "power. This increases runtime.",
+        class = "input-help"
+      ),
       conditionalPanel(
         "input.simulation",
         numericInput(
@@ -1195,17 +1262,32 @@ ui <- fluidPage(
           min = 2,
           step = 1
         ),
+        tags$p(
+          "Number of valid Monte Carlo replicates used for the empirical ",
+          "power estimates.",
+          class = "input-help"
+        ),
         numericInput(
           "simulation_seed",
           "Random seed",
           value = 1,
           min = 0,
           step = 1
+        ),
+        tags$p(
+          "Seed for reproducible simulation results. Changing it changes ",
+          "the simulated sample.",
+          class = "input-help"
         )
       ),
       checkboxInput(
         "show_computation_settings",
         "Computational settings"
+      ),
+      tags$p(
+        "Show numerical settings. The defaults are suitable for routine ",
+        "design evaluation.",
+        class = "input-help"
       ),
       conditionalPanel(
         "input.show_computation_settings",
@@ -1215,12 +1297,22 @@ ui <- fluidPage(
           value = 1e-8,
           min = 0
         ),
+        tags$p(
+          "Tolerance used when solving calendar cutoff times. Smaller values ",
+          "request greater numerical precision.",
+          class = "input-help"
+        ),
         numericInput(
           "integration_seed",
           "Random seed",
           value = 1,
           min = 0,
           step = 1
+        ),
+        tags$p(
+          "Seed for reproducible multivariate-normal integration in the ",
+          "closed-form calculation.",
+          class = "input-help"
         ),
         numericInput(
           "display_digits",
@@ -1229,6 +1321,11 @@ ui <- fluidPage(
           min = 0,
           max = 10,
           step = 1
+        ),
+        tags$p(
+          "Number of decimal places shown in result tables and CSV exports. ",
+          "This does not change calculation precision.",
+          class = "input-help"
         )
       ),
       tags$details(
