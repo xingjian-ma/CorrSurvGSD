@@ -109,7 +109,7 @@ test_that("Shiny translates pipeline errors for users", {
   expect_identical(
     app$translate_pipeline_error("unmapped internal failure"),
     paste0(
-      "The design could not be evaluated. Check the entered design inputs ",
+      "The trial design could not be evaluated. Check the entered inputs ",
       "and try again."
     )
   )

@@ -52,7 +52,7 @@ marginal_power_results_table <- function(state) {
   result <- data.frame(
     Endpoint = vapply(labels, `[[`, character(1), 1),
     Look = as.integer(vapply(labels, `[[`, character(1), 2)),
-    "Theoretical incremental power" = vapply(
+    "Closed-form incremental power" = vapply(
       theoretical[, "incremental"], format_result_value, character(1),
       digits = digits
     ),
@@ -65,7 +65,7 @@ marginal_power_results_table <- function(state) {
       digits = digits
     )
   }
-  result[["Theoretical cumulative power"]] <- vapply(
+  result[["Closed-form cumulative power"]] <- vapply(
     theoretical[, "cumulative"], format_result_value, character(1),
     digits = digits
   )
@@ -185,7 +185,7 @@ endpoint_testing_table <- function(state) {
     data.frame(
       Endpoint = endpoint,
       Look = looks,
-      "Futility HR" = vapply(futility_positions, function(position) {
+      "Futility HR threshold" = vapply(futility_positions, function(position) {
         if (is.na(position)) {
           return("-")
         }
@@ -225,7 +225,7 @@ testing_summary_table <- function(state) {
   digits <- state$options$display_digits
 
   data.frame(
-    Item = c("One-sided alpha", "Gatekeeping order"),
+    Item = c("One-sided Type I error", "Gatekeeping order"),
     Value = c(
       format_result_value(design$alpha, digits),
       paste(design$hierarchy_order, collapse = " -> ")
@@ -452,9 +452,9 @@ look_selection_table <- function(L) {
     tags$thead(tags$tr(
       tags$th("Endpoint"),
       tags$th("Look"),
-      tags$th("Efficacy (test for benefit)"),
-      tags$th("Futility (stop for lack of benefit)"),
-      tags$th("Futility HR")
+      tags$th("Efficacy analysis"),
+      tags$th("Futility analysis"),
+      tags$th("Futility HR threshold")
     )),
     do.call(tags$tbody, rows)
   )
@@ -618,10 +618,10 @@ required_input_labels <- function(input) {
     add_missing("d_PFS_vec", "Target PFS events by look")
   }
   if (is_missing_input(input$alpha_spending_PFS)) {
-    add_missing("alpha_spending_PFS", "PFS alpha spending function")
+    add_missing("alpha_spending_PFS", "PFS alpha-spending function")
   }
   if (is_missing_input(input$alpha_spending_OS)) {
-    add_missing("alpha_spending_OS", "OS alpha spending function")
+    add_missing("alpha_spending_OS", "OS alpha-spending function")
   }
   if (identical(input$alpha_spending_PFS, "HSD") &&
       is_missing_input(input$alpha_spending_gamma_PFS)) {
@@ -684,11 +684,11 @@ translate_pipeline_error <- function(message) {
       "Configure one start time for each accrual segment after the first."
     )),
     list("d_PFS_ell must not exceed", paste(
-      "Target PFS events at each look must not exceed the total sample ",
+      "Target PFS events by look must not exceed the total sample ",
       "size."
     )),
     list("d_PFS_vec", paste(
-      "Target PFS events must be strictly increasing positive whole ",
+      "Target PFS events by look must be strictly increasing positive whole ",
       "numbers."
     )),
     list("efficacy_looks", paste(
@@ -705,13 +705,13 @@ translate_pipeline_error <- function(message) {
       "exclusive."
     )),
     list("alpha_spending", paste(
-      "Select OF, Pocock, or HSD for each alpha spending function."
+      "Select OF, Pocock, or HSD for each alpha-spending function."
     )),
     list("n_sim must be at least 2", paste(
       "Enter at least 2 simulation replicates when simulation is enabled."
     )),
     list("display_digits", paste(
-      "Result decimal places must be a whole number from 0 to 10."
+      "Displayed decimal places must be a whole number from 0 to 10."
     )),
     list("Assertion on 'n_T'", paste(
       "Enter treatment group sample size as a positive whole number."
@@ -769,7 +769,7 @@ translate_pipeline_error <- function(message) {
   }
 
   paste0(
-    "The design could not be evaluated. Check the entered design inputs ",
+    "The trial design could not be evaluated. Check the entered inputs ",
     "and try again."
   )
 }
@@ -846,6 +846,12 @@ ui <- fluidPage(
         font-size: 17px;
         font-weight: 600;
       }
+      .required-note {
+        float: right;
+        color: #5b7180;
+        font-size: 12px;
+        font-weight: 400;
+      }
       .app-run-button {
         width: 100%;
         margin-top: 12px;
@@ -890,6 +896,14 @@ ui <- fluidPage(
         margin-bottom: 10px;
         color: #5b7180;
         font-size: 12px;
+      }
+      .configuration-label {
+        display: block;
+        margin-top: 8px;
+        margin-bottom: 8px;
+      }
+      .configuration-help {
+        margin-top: 0;
       }
       .app-help {
         margin: 4px 0 12px;
@@ -1011,11 +1025,15 @@ ui <- fluidPage(
       });"
     ))
   ),
-  div(class = "app-title", titlePanel("Group Sequential PFS and OS Design")),
+  div(class = "app-title", titlePanel("Group-Sequential PFS and OS Design")),
   sidebarLayout(
     sidebarPanel(
       width = 4,
-      tags$h3("Basic parameters", class = "sidebar-section-title"),
+      tags$h3(
+        tags$span("Basic parameters"),
+        tags$span("* Required", class = "required-note"),
+        class = "sidebar-section-title"
+      ),
       numericInput(
         "n_T",
         tagList("Treatment group sample size", tags$span(
@@ -1046,8 +1064,11 @@ ui <- fluidPage(
         value = NULL,
         min = 0
       ),
-      tags$p("Use the same time unit throughout the design.",
-             class = "input-help"),
+      tags$p(
+        "Median PFS expected in the control group. Use the same time unit ",
+        "for all survival medians.",
+        class = "input-help"
+      ),
       numericInput(
         "median_OS_C",
         tagList("Control group median OS", tags$span(
@@ -1055,6 +1076,11 @@ ui <- fluidPage(
         )),
         value = NULL,
         min = 0
+      ),
+      tags$p(
+        "Median OS expected in the control group. Use the same time unit ",
+        "for all survival medians.",
+        class = "input-help"
       ),
       radioButtons(
         "effect_mode",
@@ -1070,7 +1096,7 @@ ui <- fluidPage(
       ),
       tags$p(
         "Choose Hazard ratios to specify treatment-to-control effects, or ",
-        "Median survival times to specify treatment-arm medians directly.",
+        "Median survival times to specify treatment-group medians directly.",
         class = "input-help"
       ),
       conditionalPanel(
@@ -1109,8 +1135,8 @@ ui <- fluidPage(
           min = 0
         ),
         tags$p(
-          "Median PFS expected in the treatment group, in the same time ",
-          "unit as the control medians.",
+          "Median PFS expected in the treatment group. Use the same time ",
+          "unit for all survival medians.",
           class = "input-help"
         ),
         numericInput(
@@ -1120,13 +1146,13 @@ ui <- fluidPage(
           min = 0
         ),
         tags$p(
-          "Median OS expected in the treatment group, in the same time ",
-          "unit as the control medians.",
+          "Median OS expected in the treatment group. Use the same time ",
+          "unit for all survival medians.",
           class = "input-help"
         )
       ),
       tags$hr(),
-      tags$h3("Patient accrual", class = "sidebar-section-title"),
+      tags$h3("Patient accrual settings", class = "sidebar-section-title"),
       numericInput(
         "accrual_segments",
         tagList("Number of accrual segments", tags$span(
@@ -1141,11 +1167,14 @@ ui <- fluidPage(
         "the accrual rate changes over calendar time.",
         class = "input-help"
       ),
-      tags$label("Accrual configuration", class = "control-label"),
+      tags$label(
+        "Accrual configuration",
+        class = "control-label configuration-label"
+      ),
       tags$p(
         "Start time is 0 for the first segment. Later start times must use ",
         "the same calendar-time unit as the survival medians.",
-        class = "input-help"
+        class = "input-help configuration-help"
       ),
       uiOutput("accrual_configuration"),
       tags$hr(),
@@ -1180,43 +1209,48 @@ ui <- fluidPage(
         max = 1
       ),
       tags$p(
-        "One-sided family-wise type-I error level for the gatekeeping ",
-        "testing procedure.",
+        "One-sided Type I error level used to construct endpoint-specific ",
+        "efficacy boundaries.",
         class = "input-help"
       ),
       selectInput(
         "alpha_spending_PFS",
-        tagList("PFS alpha spending function", tags$span(
+        tagList("PFS alpha-spending function", tags$span(
           "*", class = "required-marker"
         )),
         choices = c("Select a spending function" = "", "OF", "Pocock", "HSD"),
         selected = ""
       ),
       tags$p(
-        "Select the alpha-spending family for PFS efficacy boundaries.",
+        "Select the alpha-spending function used for PFS efficacy ",
+        "boundaries.",
         class = "input-help"
       ),
       selectInput(
         "alpha_spending_OS",
-        tagList("OS alpha spending function", tags$span(
+        tagList("OS alpha-spending function", tags$span(
           "*", class = "required-marker"
         )),
         choices = c("Select a spending function" = "", "OF", "Pocock", "HSD"),
         selected = ""
       ),
       tags$p(
-        "Select the alpha-spending family for OS efficacy boundaries.",
+        "Select the alpha-spending function used for OS efficacy ",
+        "boundaries.",
         class = "input-help"
       ),
       conditionalPanel(
         "input.alpha_spending_PFS == 'HSD'",
         textInput(
           "alpha_spending_gamma_PFS",
-          "PFS HSD gamma"
+          tagList("PFS HSD gamma", tags$span(
+            "*", class = "required-marker"
+          ))
         ),
         tags$p(
-          "HSD shape parameter for PFS. Negative values spend more alpha ",
-          "later; positive values spend more alpha earlier.",
+          "HSD gamma for PFS. Use a finite value in [-40, 40). Negative ",
+          "values spend more alpha later; positive values spend more alpha ",
+          "earlier.",
           class = "input-help"
         )
       ),
@@ -1224,23 +1258,28 @@ ui <- fluidPage(
         "input.alpha_spending_OS == 'HSD'",
         textInput(
           "alpha_spending_gamma_OS",
-          "OS HSD gamma"
+          tagList("OS HSD gamma", tags$span(
+            "*", class = "required-marker"
+          ))
         ),
         tags$p(
-          "HSD shape parameter for OS. Negative values spend more alpha ",
-          "later; positive values spend more alpha earlier.",
+          "HSD gamma for OS. Use a finite value in [-40, 40). Negative ",
+          "values spend more alpha later; positive values spend more alpha ",
+          "earlier.",
           class = "input-help"
         )
       ),
-      tags$label("Boundary configuration", class = "control-label"),
+      tags$label(
+        "Boundary configuration",
+        class = "control-label configuration-label"
+      ),
       uiOutput("look_selection"),
-      tags$details(
-        class = "app-help",
-        tags$summary("About sequential testing settings"),
-        tags$p(
-          "Select efficacy looks for each endpoint. Futility analyses are ",
-          "available before the final look only. HSD requires a gamma value."
-        )
+      tags$p(
+        "The final efficacy look is always included and preselected; select ",
+        "any additional efficacy looks. Futility analyses are off by default ",
+        "and available before the final look only. For a selected futility ",
+        "look, set an HR threshold above 1 (default 1.2). HSD requires gamma.",
+        class = "input-help configuration-help"
       ),
       tags$hr(),
       tags$h3("Advanced settings", class = "sidebar-section-title"),
@@ -1249,15 +1288,15 @@ ui <- fluidPage(
         "Run simulation"
       ),
       tags$p(
-        "Run a Monte Carlo simulation to compare empirical and theoretical ",
-        "power. This increases runtime.",
+        "Run a Monte Carlo simulation to compare simulation estimates with ",
+        "closed-form estimates. This increases runtime.",
         class = "input-help"
       ),
       conditionalPanel(
         "input.simulation",
         numericInput(
           "n_sim",
-          "Simulation replicates",
+          "Monte Carlo replicates",
           value = 500,
           min = 2,
           step = 1
@@ -1269,7 +1308,7 @@ ui <- fluidPage(
         ),
         numericInput(
           "simulation_seed",
-          "Random seed",
+          "Simulation random seed",
           value = 1,
           min = 0,
           step = 1
@@ -1304,7 +1343,7 @@ ui <- fluidPage(
         ),
         numericInput(
           "integration_seed",
-          "Random seed",
+          "Integration random seed",
           value = 1,
           min = 0,
           step = 1
@@ -1316,7 +1355,7 @@ ui <- fluidPage(
         ),
         numericInput(
           "display_digits",
-          "Result decimal places",
+          "Displayed decimal places",
           value = 4,
           min = 0,
           max = 10,
@@ -1326,14 +1365,6 @@ ui <- fluidPage(
           "Number of decimal places shown in result tables and CSV exports. ",
           "This does not change calculation precision.",
           class = "input-help"
-        )
-      ),
-      tags$details(
-        class = "app-help",
-        tags$summary("About advanced settings"),
-        tags$p(
-          "Simulation compares Monte Carlo results with the closed-form ",
-          "calculation. Random seeds make numerical results reproducible."
         )
       ),
       uiOutput("run_control")
@@ -1366,7 +1397,7 @@ ui <- fluidPage(
               class = "intro-card",
               tags$h4("1. Define the design"),
               tags$p(
-                "Enter sample sizes, control-arm medians, accrual, planned "
+                "Enter sample sizes, control-group medians, accrual, planned "
                   , "PFS events, and alpha-spending choices."
               )
             ),
@@ -1399,19 +1430,19 @@ ui <- fluidPage(
           tags$h3("Analysis workflow"),
           tags$p(
             tags$span(class = "intro-step", "1"),
-            "Complete the required inputs in the sidebar."
+            "Complete the required trial-design inputs in the sidebar."
           ),
           tags$p(
             tags$span(class = "intro-step", "2"),
-            "Select Run pipeline to validate and evaluate the design."
+            "Select Run pipeline."
           ),
           tags$p(
             tags$span(class = "intro-step", "3"),
-            "Use Input and design and Results to inspect the output."
+            "Use Trial design and Results to inspect the output."
           )
         ),
         tabPanel(
-          "Input and design",
+          "Trial design",
           uiOutput("design_panel")
         ),
         tabPanel(
@@ -1434,7 +1465,10 @@ server <- function(input, output, session) {
     if (length(missing) > 0) {
       completion_message <- tags$div(
         class = "required-inputs",
-        tags$p("Complete the required inputs before running the pipeline."),
+        tags$p(
+          "Complete the required trial-design inputs before running the ",
+          "pipeline."
+        ),
         tags$ul(lapply(names(missing), function(id) {
           tags$li(tags$a(
             missing[[id]],
@@ -1446,8 +1480,7 @@ server <- function(input, output, session) {
     } else {
       completion_message <- tags$div(
         class = "input-complete",
-        "All required inputs are complete. Run the pipeline to validate "
-          , "the design."
+        "All required trial-design inputs are complete. Run the pipeline."
       )
     }
 
@@ -1566,7 +1599,7 @@ server <- function(input, output, session) {
     if (is.null(calculation_result)) {
       return(tags$div(
         class = "app-status",
-        "Complete the required design inputs, then run the pipeline."
+        "Complete the required trial-design inputs, then run the pipeline."
       ))
     }
 
@@ -1608,13 +1641,14 @@ server <- function(input, output, session) {
 
     if (is.null(calculation_result)) {
       return(empty_state(
-        "Complete the inputs and run the pipeline to view the design."
+        "Complete the trial-design inputs and run the pipeline to view the "
+          , "trial design."
       ))
     }
 
     if (!is.null(calculation_result$error)) {
       return(empty_state(
-        "Review the message above, update the design inputs, and run the "
+        "Review the message above, update the trial-design inputs, and run the "
           , "pipeline again.",
         error = TRUE
       ))
@@ -1645,7 +1679,7 @@ server <- function(input, output, session) {
 
     if (!is.null(calculation_result$error)) {
       return(empty_state(
-        "Review the message above, update the design inputs, and run the "
+        "Review the message above, update the trial-design inputs, and run the "
           , "pipeline again.",
         error = TRUE
       ))
@@ -1676,7 +1710,7 @@ server <- function(input, output, session) {
         "Testing summary" = testing_summary_table(state),
         "Testing configuration" = endpoint_testing_table(state),
         "Marginal power" = marginal_power_results_table(state),
-        "Theoretical joint power" = joint_power_results_table(
+        "Closed-form joint power" = joint_power_results_table(
           state$theoretical_results$joint_power_matrix,
           digits = digits
         )
@@ -1720,7 +1754,7 @@ server <- function(input, output, session) {
       fluidRow(
         column(
           width = 6,
-          tags$h4("Theoretical"),
+          tags$h4("Closed-form"),
           tableOutput("theoretical_joint_power")
         ),
         column(
@@ -1733,7 +1767,7 @@ server <- function(input, output, session) {
       fluidRow(
         column(
           width = 12,
-          tags$h4("Theoretical"),
+          tags$h4("Closed-form"),
           tableOutput("theoretical_joint_power")
         )
       )
