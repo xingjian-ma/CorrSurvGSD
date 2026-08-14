@@ -764,11 +764,11 @@ translate_pipeline_error <- function(message) {
 
   for (mapping in mappings) {
     if (grepl(mapping[[1]], message, fixed = TRUE)) {
-      return(mapping[[2]])
+      return(gsub(" {2,}", " ", mapping[[2]]))
     }
   }
 
-  paste(
+  paste0(
     "The design could not be evaluated. Check the entered design inputs ",
     "and try again."
   )

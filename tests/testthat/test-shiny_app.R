@@ -10,6 +10,23 @@ load_shiny_app_environment <- function() {
   app_environment
 }
 
+complete_shiny_input <- function() {
+  list(
+    n_T = 100,
+    n_C = 100,
+    median_PFS_C = 4,
+    median_OS_C = 8,
+    effect_mode = "hr",
+    HR_PFS = 0.8,
+    HR_OS = 0.85,
+    accrual_segments = 1,
+    accrual_rate_1 = 20,
+    d_PFS_vec = "50, 100",
+    alpha_spending_PFS = "OF",
+    alpha_spending_OS = "Pocock"
+  )
+}
+
 test_that("Shiny parsing and formatting helpers handle edge cases", {
   skip_if_not_installed("shiny")
   app <- load_shiny_app_environment()
@@ -26,6 +43,76 @@ test_that("Shiny parsing and formatting helpers handle edge cases", {
   expect_equal(app$format_result_value(1.2345, digits = 2), "1.23")
   expect_equal(app$format_result_value(NA_real_), "-")
   expect_equal(app$format_boundary_value(Inf), "-")
+})
+
+test_that("Shiny required-input guidance checks completeness only", {
+  skip_if_not_installed("shiny")
+  app <- load_shiny_app_environment()
+  input <- complete_shiny_input()
+
+  expect_false(app$is_missing_input(1))
+  expect_true(app$is_missing_input(NULL))
+  expect_true(app$is_missing_input("   "))
+  expect_length(app$required_input_labels(input), 0)
+
+  input$n_T <- NULL
+  expect_identical(
+    app$required_input_labels(input),
+    list(n_T = "Treatment group sample size")
+  )
+
+  input <- complete_shiny_input()
+  input$effect_mode <- "median"
+  input$median_PFS_T <- NULL
+  input$median_OS_T <- NULL
+  expect_identical(
+    app$required_input_labels(input),
+    list(
+      median_PFS_T = "Treatment group median PFS",
+      median_OS_T = "Treatment group median OS"
+    )
+  )
+
+  input <- complete_shiny_input()
+  input$alpha_spending_PFS <- "HSD"
+  input$alpha_spending_gamma_PFS <- NULL
+  expect_identical(
+    app$required_input_labels(input),
+    list(alpha_spending_gamma_PFS = "PFS HSD gamma")
+  )
+})
+
+test_that("Shiny translates pipeline errors for users", {
+  skip_if_not_installed("shiny")
+  app <- load_shiny_app_environment()
+
+  model_error <- app$translate_pipeline_error(
+    "lambda_1_T must be positive after applying HR_PFS and HR_OS."
+  )
+  expect_match(model_error, "incompatible with the illness-to-death model")
+  expect_false(grepl("lambda_1_T", model_error, fixed = TRUE))
+  expect_identical(
+    app$pipeline_error_input_ids("lambda_1_T must be positive"),
+    c("HR_PFS", "HR_OS", "median_PFS_T", "median_OS_T")
+  )
+
+  vector_error <- app$translate_pipeline_error(
+    "d_PFS_vec must be a comma-separated numeric vector."
+  )
+  expect_match(vector_error, "comma-separated numbers")
+  expect_false(grepl("d_PFS_vec", vector_error, fixed = TRUE))
+  expect_identical(
+    app$pipeline_error_input_ids("d_PFS_vec must be invalid"),
+    "d_PFS_vec"
+  )
+
+  expect_identical(
+    app$translate_pipeline_error("unmapped internal failure"),
+    paste0(
+      "The design could not be evaluated. Check the entered design inputs ",
+      "and try again."
+    )
+  )
 })
 
 test_that("Shiny result tables expose the expected structures", {
