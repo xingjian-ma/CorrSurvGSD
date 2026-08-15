@@ -59,11 +59,11 @@ state$theoretical_results$joint_correlation_matrix
 PFS event counts, control PFS and OS medians, and either treatment medians or
 endpoint-specific hazard ratios. The unused treatment input pair defaults to
 `NULL`.
-- A named `efficacy_looks` list must be supplied to specify the efficacy
-analyses for each endpoint.
-- A named `futility_looks` list must be supplied to specify endpoint-specific
-futility analyses before the final look. Use empty vectors when futility is not
-used.
+- `efficacy_looks` and `futility_looks` default to `NULL`. This performs
+efficacy analysis only at the final look and disables futility analysis for both
+endpoints.
+- When configured, `futility_looks` must contain strictly increasing integer
+looks before the final look, so every futility look satisfies `look < L`.
 - `hierarchy_order` specifies whether PFS or OS is the primary gatekeeping
 endpoint.
 - The returned `trial_state` stores validated design quantities in

@@ -41,6 +41,29 @@ test_that("uniform accrual builds the expected default design", {
                list(tol = 1e-8, integration_seed = 1, simulation_seed = 1))
 })
 
+test_that("NULL look schedules default to final efficacy only", {
+  state <- validate_test_input(
+    d_PFS_vec = c(50, 100),
+    efficacy_looks = NULL,
+    futility_looks = NULL,
+    median_PFS_T = log(2) / 0.15,
+    median_OS_T = log(2) / 0.05
+  )
+
+  expect_identical(
+    state$design$efficacy_looks,
+    list(PFS = 2L, OS = 2L)
+  )
+  expect_identical(
+    state$design$futility_looks,
+    list(PFS = integer(0), OS = integer(0))
+  )
+  expect_identical(
+    state$design$futility_HR,
+    list(PFS = numeric(0), OS = numeric(0))
+  )
+})
+
 test_that("HR inputs derive treatment hazards and ratios", {
   state <- validate_test_input(
     n_T = 100,

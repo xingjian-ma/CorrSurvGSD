@@ -140,7 +140,7 @@ validate_trial_input <- function(n_T, n_C, d_PFS_vec,
   # Validate endpoint look schedules.
   endpoints <- c("PFS", "OS")
   if (is.null(efficacy_looks)) {
-    efficacy_looks <- list(PFS = seq_len(L), OS = seq_len(L))
+    efficacy_looks <- list(PFS = L, OS = L)
   }
   if (is.null(futility_looks)) {
     futility_looks <- list(PFS = integer(0), OS = integer(0))

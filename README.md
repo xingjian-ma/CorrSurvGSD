@@ -20,6 +20,8 @@
 - The returned `trial_state` contains validated inputs in `state$design`, numerical settings in `state$options`, and closed-form results in `state$theoretical_results`.
 - Set `simulation = TRUE` to append Monte Carlo summaries to `state$empirical_results`.
 - Use `integration_seed` for reproducible multivariate-normal integration and `simulation_seed` for reproducible Monte Carlo results.
+- `efficacy_looks` and `futility_looks` default to `NULL`, which performs efficacy analysis only at the final look and disables futility analysis for both endpoints.
+- When configured, `futility_looks` must contain strictly increasing integer looks before the final look, so every futility look satisfies `look < L`.
 
 ```r
 state <- CorrSurvGSD::run_pipeline(

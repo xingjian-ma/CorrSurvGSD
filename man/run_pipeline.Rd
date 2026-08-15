@@ -21,8 +21,8 @@ run_pipeline(
   alpha_spending_gamma_PFS = NA_real_,
   alpha_spending_gamma_OS = NA_real_,
   alpha = 0.025,
-  efficacy_looks,
-  futility_looks,
+  efficacy_looks = NULL,
+  futility_looks = NULL,
   futility_HR = 1.2,
   hierarchy_order = c(primary = "PFS", secondary = "OS"),
   tol = 1e-08,
@@ -74,11 +74,13 @@ Provide this and \code{HR_OS} to use hazard-ratio inputs.}
 
 \item{alpha}{One-sided type-I error level. Defaults to \code{0.025}.}
 
-\item{efficacy_looks}{Required named list of PFS and OS efficacy-look
-schedules.}
+\item{efficacy_looks}{Named list of PFS and OS efficacy-look schedules.
+Defaults to \code{NULL}, which performs efficacy analysis only at the final
+look for each endpoint.}
 
-\item{futility_looks}{Required named list of PFS and OS futility-look
-schedules. Use empty vectors to disable futility analysis for an endpoint.}
+\item{futility_looks}{Named list of PFS and OS futility-look schedules.
+Defaults to \code{NULL}, which disables futility analysis for both endpoints.
+Any configured futility look must occur before the final look.}
 
 \item{futility_HR}{Futility HR specification. Defaults to \code{1.2}. This can
 be one scalar, a named PFS/OS vector, or a named list of endpoint-specific

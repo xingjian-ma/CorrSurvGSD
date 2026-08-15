@@ -38,6 +38,35 @@ test_that("run_pipeline returns a complete theoretical result", {
   )
 })
 
+test_that("run_pipeline defaults to final efficacy without futility", {
+  result <- run_pipeline(
+    n_T = 100,
+    n_C = 100,
+    d_PFS_vec = c(50, 100),
+    v_vec = c(200 / 12),
+    median_PFS_C = log(2) / 0.25,
+    median_OS_C = log(2) / 0.10,
+    median_PFS_T = log(2) / 0.15,
+    median_OS_T = log(2) / 0.05,
+    alpha_spending_PFS = "OF",
+    alpha_spending_OS = "Pocock"
+  )
+
+  expect_identical(
+    result$design$efficacy_looks,
+    list(PFS = 2L, OS = 2L)
+  )
+  expect_identical(
+    result$design$futility_looks,
+    list(PFS = integer(0), OS = integer(0))
+  )
+  expect_identical(
+    result$design$futility_HR,
+    list(PFS = numeric(0), OS = numeric(0))
+  )
+  expect_true(all(is.infinite(result$design$boundary[, "futility"])))
+})
+
 test_that("run_pipeline supports HR inputs and OS-primary simulation", {
   result <- run_pipeline(
     n_T = 100,

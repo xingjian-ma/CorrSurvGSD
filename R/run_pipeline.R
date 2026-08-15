@@ -30,10 +30,12 @@
 #'   `NA_real_`; a finite value is required when
 #'   `alpha_spending_OS = "HSD"`.
 #' @param alpha One-sided type-I error level. Defaults to `0.025`.
-#' @param efficacy_looks Required named list of PFS and OS efficacy-look
-#'   schedules.
-#' @param futility_looks Required named list of PFS and OS futility-look
-#'   schedules. Use empty vectors to disable futility analysis for an endpoint.
+#' @param efficacy_looks Named list of PFS and OS efficacy-look schedules.
+#'   Defaults to `NULL`, which performs efficacy analysis only at the final
+#'   look for each endpoint.
+#' @param futility_looks Named list of PFS and OS futility-look schedules.
+#'   Defaults to `NULL`, which disables futility analysis for both endpoints.
+#'   Any configured futility look must occur before the final look.
 #' @param futility_HR Futility HR specification. Defaults to `1.2`. This can
 #'   be one scalar, a named PFS/OS vector, or a named list of endpoint-specific
 #'   look vectors.
@@ -84,8 +86,8 @@ run_pipeline <- function(n_T, n_C, d_PFS_vec,
                          alpha_spending_gamma_PFS = NA_real_,
                          alpha_spending_gamma_OS = NA_real_,
                          alpha = 0.025,
-                         efficacy_looks,
-                         futility_looks,
+                         efficacy_looks = NULL,
+                         futility_looks = NULL,
                          futility_HR = 1.2,
                          hierarchy_order = c(
                            primary = "PFS",
