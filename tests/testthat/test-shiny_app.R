@@ -142,31 +142,43 @@ test_that("Shiny result tables expose the expected structures", {
   boundary_z <- app$boundary_results_table(state, scale = "z")
   boundary_hr <- app$boundary_results_table(state, scale = "hr")
   boundary_p <- app$boundary_results_table(state, scale = "p")
+  framework <- app$testing_framework_details(state)
   marginal <- app$marginal_power_results_table(state)
   joint <- app$joint_power_results_table(
     state$theoretical_results$joint_power_matrix
   )
-  summary <- app$result_summary_table(state)
+  context <- app$result_context_text(state)
 
-  expect_equal(nrow(trial_design), 9)
+  expect_equal(nrow(trial_design), 3)
   expect_equal(nrow(accrual), 1)
   expect_equal(nrow(schedule), 2)
   expect_equal(nrow(testing), 4)
   expect_equal(nrow(boundary_z), 4)
+  expect_equal(nrow(framework), 4)
   expect_equal(nrow(marginal), 4)
   expect_equal(nrow(joint), 2)
-  expect_equal(nrow(summary), 5)
-  expect_named(trial_design, c("Item", "Value"))
+  expect_named(
+    trial_design,
+    c("Characteristic", "Treatment", "Control", "Comparative measure")
+  )
   expect_named(schedule, c("Look", "Target PFS events", "Derived OS events",
                            "Calendar cutoff"))
   expect_named(
     boundary_z,
-    c("Endpoint", "Look", "Futility boundary", "Efficacy boundary")
+    c(
+      "Endpoint",
+      "Look",
+      "Configured futility HR threshold",
+      "Futility boundary",
+      "Efficacy boundary"
+    )
   )
   expect_false(identical(boundary_z, boundary_hr))
   expect_false(identical(boundary_hr, boundary_p))
-  expect_named(summary, c("Label", "Value"))
-  expect_identical(summary$Label[5], "Gatekept joint power")
+  expect_match(trial_design$`Comparative measure`[2], "PFS HR (T/C)",
+               fixed = TRUE)
+  expect_identical(framework$Label[2], "Gatekeeping order")
+  expect_match(context, "200 participants")
   expect_true(all(vapply(joint, is.character, logical(1))))
 })
 
@@ -198,6 +210,6 @@ test_that("Shiny renders the Results view after a successful pipeline run", {
     session$setInputs(n_T = 120)
 
     expect_match(output$status$html, "Pipeline completed")
-    expect_match(output$result_summary$html, "200")
+    expect_match(output$result_context$html, "200 participants")
   })
 })
