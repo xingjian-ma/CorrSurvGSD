@@ -1816,10 +1816,12 @@ server <- function(input, output, session) {
     ignoreInit = TRUE
   )
 
+  last_successful_state <- reactiveVal(NULL)
+
   current_state <- reactive({
-    calculation_result <- calculation()
-    req(is.null(calculation_result$error))
-    calculation_result$state
+    state <- last_successful_state()
+    req(!is.null(state))
+    state
   })
 
   observeEvent(calculation(), {
@@ -1832,6 +1834,7 @@ server <- function(input, output, session) {
 
     session$sendCustomMessage("corrsurvInputError", error_input_ids)
     if (is.null(calculation_result$error)) {
+      last_successful_state(calculation_result$state)
       updateTabsetPanel(session, "main_tabs", selected = "Results")
     }
   }, ignoreNULL = TRUE)
@@ -1869,9 +1872,7 @@ server <- function(input, output, session) {
   })
 
   output$download_control <- renderUI({
-    calculation_result <- calculation()
-    is_complete <- !is.null(calculation_result) &&
-      is.null(calculation_result$error)
+    is_complete <- !is.null(last_successful_state())
 
     if (!is_complete) {
       return(tags$button(
@@ -1889,19 +1890,11 @@ server <- function(input, output, session) {
   })
 
   output$results_panel <- renderUI({
-    calculation_result <- calculation()
+    state <- last_successful_state()
 
-    if (is.null(calculation_result)) {
+    if (is.null(state)) {
       return(empty_state(
         "Run the pipeline to view marginal and joint power results."
-      ))
-    }
-
-    if (!is.null(calculation_result$error)) {
-      return(empty_state(
-        "Review the message above, update the trial-design inputs, and run the "
-          , "pipeline again.",
-        error = TRUE
       ))
     }
 

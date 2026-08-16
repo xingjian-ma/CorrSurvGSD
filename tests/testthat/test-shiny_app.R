@@ -194,5 +194,10 @@ test_that("Shiny renders the Results view after a successful pipeline run", {
     expect_match(output$status$html, "Pipeline completed")
     expect_match(output$results_panel$html, "Design summary")
     expect_match(output$results_panel$html, "Gatekept joint power")
+
+    session$setInputs(n_T = 120)
+
+    expect_match(output$status$html, "Pipeline completed")
+    expect_match(output$result_summary$html, "200")
   })
 })
