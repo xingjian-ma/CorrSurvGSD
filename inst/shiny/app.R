@@ -817,32 +817,32 @@ ui <- fluidPage(
     tags$style(HTML(
       "
       body {
-        background-color: #f5f7fb;
-        color: #243447;
+        background-color: #f7f5f5;
+        color: #31292b;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       }
       .app-title {
         margin: 0 -15px 20px;
         padding: 24px 30px 20px;
-        background: linear-gradient(135deg, #12355b, #1f6f8b);
+        background: linear-gradient(135deg, #7d1020, #b52239);
         color: #ffffff;
-        box-shadow: 0 2px 8px rgba(18, 53, 91, 0.18);
+        box-shadow: 0 3px 12px rgba(92, 15, 28, 0.2);
       }
       .app-title h2 {
         margin: 0;
         font-weight: 600;
       }
       .well {
-        border: 1px solid #dbe3ee;
+        border: 1px solid #e4dadd;
         border-radius: 10px;
         background-color: #ffffff;
-        box-shadow: 0 2px 8px rgba(36, 52, 71, 0.06);
+        box-shadow: 0 2px 8px rgba(49, 41, 43, 0.06);
       }
       .sidebar-section-title {
         margin-top: 20px;
         padding-bottom: 8px;
-        border-bottom: 2px solid #dceaf2;
-        color: #12355b;
+        border-bottom: 2px solid #f0d8dc;
+        color: #7d1020;
         font-size: 17px;
         font-weight: 600;
       }
@@ -857,12 +857,12 @@ ui <- fluidPage(
         margin-top: 12px;
         border: 0;
         border-radius: 6px;
-        background-color: #1f6f8b;
+        background-color: #9f1d32;
         font-weight: 600;
       }
       .app-run-button:hover,
       .app-run-button:focus {
-        background-color: #15556d;
+        background-color: #7d1020;
       }
       .app-download-button {
         margin-bottom: 14px;
@@ -871,10 +871,10 @@ ui <- fluidPage(
         min-height: 36px;
         margin-bottom: 14px;
         padding: 9px 13px;
-        border-left: 4px solid #1f6f8b;
+        border-left: 4px solid #9f1d32;
         border-radius: 4px;
-        background-color: #eaf4f7;
-        color: #15556d;
+        background-color: #fdf1f3;
+        color: #7d1020;
         font-weight: 600;
       }
       .app-status-error {
@@ -963,34 +963,34 @@ ui <- fluidPage(
         color: #9b3d3d;
       }
       .intro-hero {
-        margin-bottom: 22px;
-        padding: 26px 30px;
+        margin-bottom: 20px;
+        padding: 30px 32px;
         border-radius: 10px;
-        background: linear-gradient(135deg, #eaf4f7, #ffffff);
-        border: 1px solid #cfe2eb;
+        background: linear-gradient(135deg, #fff4f5, #ffffff);
+        border: 1px solid #edcfd4;
       }
       .intro-hero h2 {
         margin-top: 0;
-        color: #12355b;
+        color: #7d1020;
         font-weight: 600;
       }
       .intro-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-        gap: 15px;
-        margin-bottom: 22px;
+        gap: 16px;
+        margin-bottom: 20px;
       }
       .intro-card {
-        min-height: 150px;
+        min-height: 162px;
         padding: 18px;
-        border: 1px solid #dbe3ee;
+        border: 1px solid #e4dadd;
         border-radius: 8px;
         background-color: #ffffff;
-        box-shadow: 0 2px 6px rgba(36, 52, 71, 0.05);
+        box-shadow: 0 2px 6px rgba(49, 41, 43, 0.05);
       }
       .intro-card h4 {
         margin-top: 0;
-        color: #1f6f8b;
+        color: #9f1d32;
         font-weight: 600;
       }
       .intro-step {
@@ -999,7 +999,7 @@ ui <- fluidPage(
         height: 26px;
         margin-right: 6px;
         border-radius: 50%;
-        background-color: #1f6f8b;
+        background-color: #9f1d32;
         color: #ffffff;
         line-height: 26px;
         text-align: center;
@@ -1007,6 +1007,45 @@ ui <- fluidPage(
       }
       .tab-content {
         padding-top: 18px;
+      }
+      .intro-eyebrow {
+        margin-bottom: 8px;
+        color: #9f1d32;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .intro-lead {
+        max-width: 760px;
+        margin-bottom: 0;
+        color: #53464a;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .intro-output-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .intro-output-list li {
+        padding: 14px 16px;
+        border-left: 3px solid #b52239;
+        border-radius: 4px;
+        background-color: #ffffff;
+        box-shadow: 0 1px 4px rgba(49, 41, 43, 0.05);
+      }
+      @media (max-width: 767px) {
+        .app-title {
+          margin-bottom: 14px;
+          padding: 20px;
+        }
+        .intro-hero {
+          padding: 22px;
+        }
       }
       table {
         background-color: #ffffff;
@@ -1379,66 +1418,49 @@ ui <- fluidPage(
           "Introduction",
           div(
             class = "intro-hero",
+            tags$div("Clinical trial design evaluation", class = "intro-eyebrow"),
             tags$h2("Closed-form evaluation for PFS and OS designs"),
             tags$p(
-              "CorrSurvGSD evaluates correlated group sequential designs "
-                , "for progression-free survival (PFS) and overall survival "
-                , "(OS) under the Fleischer model."
-            ),
-            tags$p(
-              "Use the controls on the left to define a trial design, then "
-                , "run the pipeline to obtain calendar cutoffs, testing "
-                , "boundaries, and power summaries."
+              "CorrSurvGSD evaluates correlated group sequential designs for "
+                , "progression-free survival (PFS) and overall survival (OS) "
+                , "under the Fleischer model.",
+              class = "intro-lead"
             )
           ),
           div(
             class = "intro-grid",
             div(
               class = "intro-card",
-              tags$h4("1. Define the design"),
+              tags$h4("1. Configure"),
               tags$p(
-                "Enter sample sizes, control-group medians, accrual, planned "
+                "Define sample sizes, control-group medians, accrual, planned "
                   , "PFS events, and alpha-spending choices."
               )
             ),
             div(
               class = "intro-card",
-              tags$h4("2. Specify treatment effects"),
+              tags$h4("2. Evaluate"),
               tags$p(
-                "Choose either treatment hazard ratios or treatment median "
-                  , "survival times. The two input modes are mutually exclusive."
+                "Specify treatment effects using hazard ratios or treatment "
+                  , "medians, then run the closed-form pipeline."
               )
             ),
             div(
               class = "intro-card",
-              tags$h4("3. Review the results"),
+              tags$h4("3. Review"),
               tags$p(
-                "Inspect the design, boundaries, marginal power, and joint "
-                  , "power. Optional simulation results can be compared with "
-                  , "the closed-form calculations."
+                "Review design assumptions, decision boundaries, and power "
+                  , "summaries. Compare simulation when it is enabled."
               )
             )
           ),
-          tags$h3("What the application returns"),
+          tags$h3("Key outputs"),
           tags$ul(
-            tags$li("Expected calendar cutoffs for each analysis look."),
+            class = "intro-output-list",
+            tags$li("Calendar cutoffs and expected event counts by look."),
             tags$li("Z-scale, HR-scale, and one-sided p-scale boundaries."),
-            tags$li("Marginal and gatekeeping joint power summaries."),
-            tags$li("Optional reproducible Monte Carlo summaries."),
-            tags$li("CSV download of the displayed design and results.")
-          ),
-          tags$h3("Analysis workflow"),
-          tags$p(
-            tags$span(class = "intro-step", "1"),
-            "Complete the required trial-design inputs in the sidebar."
-          ),
-          tags$p(
-            tags$span(class = "intro-step", "2"),
-            "Select Run pipeline."
-          ),
-          tags$p(
-            tags$span(class = "intro-step", "3"),
-            "Use Trial design and Results to inspect the output."
+            tags$li("Marginal power and gatekept joint power summaries."),
+            tags$li("Optional reproducible Monte Carlo comparisons.")
           )
         ),
         tabPanel(
