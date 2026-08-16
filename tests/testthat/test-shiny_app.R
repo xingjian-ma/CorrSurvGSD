@@ -139,6 +139,9 @@ test_that("Shiny result tables expose the expected structures", {
   accrual <- app$accrual_design_table(state)
   schedule <- app$analysis_schedule_table(state)
   testing <- app$endpoint_testing_table(state)
+  boundary_z <- app$boundary_results_table(state, scale = "z")
+  boundary_hr <- app$boundary_results_table(state, scale = "hr")
+  boundary_p <- app$boundary_results_table(state, scale = "p")
   marginal <- app$marginal_power_results_table(state)
   joint <- app$joint_power_results_table(
     state$theoretical_results$joint_power_matrix
@@ -148,10 +151,17 @@ test_that("Shiny result tables expose the expected structures", {
   expect_equal(nrow(accrual), 1)
   expect_equal(nrow(schedule), 2)
   expect_equal(nrow(testing), 4)
+  expect_equal(nrow(boundary_z), 4)
   expect_equal(nrow(marginal), 4)
   expect_equal(nrow(joint), 2)
   expect_named(trial_design, c("Item", "Value"))
   expect_named(schedule, c("Look", "Target PFS events", "Derived OS events",
                            "Calendar cutoff"))
+  expect_named(
+    boundary_z,
+    c("Endpoint", "Look", "Futility boundary", "Efficacy boundary")
+  )
+  expect_false(identical(boundary_z, boundary_hr))
+  expect_false(identical(boundary_hr, boundary_p))
   expect_true(all(vapply(joint, is.character, logical(1))))
 })

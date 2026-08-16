@@ -220,6 +220,45 @@ endpoint_testing_table <- function(state) {
   }))
 }
 
+boundary_results_table <- function(state, scale = c("z", "hr", "p")) {
+  scale <- match.arg(scale)
+  design <- state$design
+  digits <- state$options$display_digits
+  boundary <- switch(
+    scale,
+    z = design$boundary,
+    hr = design$boundary_HR,
+    p = design$boundary_p
+  )
+
+  do.call(rbind, lapply(c("PFS", "OS"), function(endpoint) {
+    looks <- seq_len(design$L)
+    endpoint_boundary <- boundary[
+      paste0(endpoint, "_", looks),
+      ,
+      drop = FALSE
+    ]
+
+    data.frame(
+      Endpoint = endpoint,
+      Look = looks,
+      "Futility boundary" = vapply(
+        endpoint_boundary[, "futility"],
+        format_boundary_value,
+        character(1),
+        digits = digits
+      ),
+      "Efficacy boundary" = vapply(
+        endpoint_boundary[, "efficacy"],
+        format_boundary_value,
+        character(1),
+        digits = digits
+      ),
+      check.names = FALSE
+    )
+  }))
+}
+
 testing_summary_table <- function(state) {
   design <- state$design
   digits <- state$options$display_digits
@@ -1464,10 +1503,6 @@ ui <- fluidPage(
           )
         ),
         tabPanel(
-          "Trial design",
-          uiOutput("design_panel")
-        ),
-        tabPanel(
           "Results",
           uiOutput("results_panel")
         )
@@ -1658,38 +1693,6 @@ server <- function(input, output, session) {
     )
   })
 
-  output$design_panel <- renderUI({
-    calculation_result <- calculation()
-
-    if (is.null(calculation_result)) {
-      return(empty_state(
-        "Complete the trial-design inputs and run the pipeline to view the "
-          , "trial design."
-      ))
-    }
-
-    if (!is.null(calculation_result$error)) {
-      return(empty_state(
-        "Review the message above, update the trial-design inputs, and run the "
-          , "pipeline again.",
-        error = TRUE
-      ))
-    }
-
-    tagList(
-      tags$h3("Trial design"),
-      tableOutput("trial_design"),
-      tags$h3("Accrual"),
-      tableOutput("accrual_design"),
-      tags$h3("Analysis schedule and testing"),
-      tags$h4("Analysis schedule"),
-      tableOutput("analysis_schedule"),
-      tags$h4("Testing configuration"),
-      tableOutput("testing_summary"),
-      tableOutput("endpoint_testing")
-    )
-  })
-
   output$results_panel <- renderUI({
     calculation_result <- calculation()
 
@@ -1707,11 +1710,53 @@ server <- function(input, output, session) {
       ))
     }
 
-    tagList(
-      tags$h3("Marginal power"),
-      tableOutput("marginal_power_results"),
-      tags$h3("Joint power"),
-      uiOutput("joint_power_results")
+    tabsetPanel(
+      id = "result_sections",
+      tabPanel(
+        "Design summary",
+        tags$h3("Trial characteristics"),
+        div(class = "table-responsive", tableOutput("trial_design")),
+        tags$h3("Accrual schedule"),
+        div(class = "table-responsive", tableOutput("accrual_design")),
+        tags$h3("Analysis schedule"),
+        div(class = "table-responsive", tableOutput("analysis_schedule")),
+        tags$h3("Testing configuration"),
+        div(class = "table-responsive", tableOutput("testing_summary")),
+        div(class = "table-responsive", tableOutput("endpoint_testing"))
+      ),
+      tabPanel(
+        "Boundaries",
+        radioButtons(
+          "boundary_scale",
+          "Boundary scale",
+          choices = c(
+            "Z-score" = "z",
+            "Hazard ratio" = "hr",
+            "One-sided p-value" = "p"
+          ),
+          selected = "z",
+          inline = TRUE
+        ),
+        tags$p(
+          "Futility and efficacy boundaries are shown on the selected scale.",
+          class = "app-help"
+        ),
+        div(class = "table-responsive", tableOutput("boundary_results"))
+      ),
+      tabPanel(
+        "Power",
+        radioButtons(
+          "power_view",
+          "Power summary",
+          choices = c(
+            "Marginal power" = "marginal",
+            "Gatekept joint power" = "joint"
+          ),
+          selected = "marginal",
+          inline = TRUE
+        ),
+        uiOutput("power_details")
+      )
     )
   })
 
@@ -1765,52 +1810,72 @@ server <- function(input, output, session) {
   output$analysis_schedule <- render_result_table(analysis_schedule_table)
   output$testing_summary <- render_result_table(testing_summary_table)
   output$endpoint_testing <- render_result_table(endpoint_testing_table)
+  output$boundary_results <- render_result_table(function(state) {
+    scale <- if (is.null(input$boundary_scale)) "z" else input$boundary_scale
+    boundary_results_table(state, scale = scale)
+  })
   output$marginal_power_results <- render_result_table(
     marginal_power_results_table
   )
 
-  output$joint_power_results <- renderUI({
+  output$power_details <- renderUI({
     state <- current_state()
+    power_view <- if (is.null(input$power_view)) "marginal" else {
+      input$power_view
+    }
 
-    if (isTRUE(state$options$simulation)) {
-      fluidRow(
-        column(
-          width = 6,
-          tags$h4("Closed-form"),
-          tableOutput("theoretical_joint_power")
+    if (identical(power_view, "marginal")) {
+      return(tagList(
+        tags$p(
+          "Endpoint-level efficacy probability by analysis look.",
+          class = "app-help"
         ),
-        column(
-          width = 6,
-          tags$h4("Simulation"),
-          tableOutput("simulation_joint_power")
+        div(
+          class = "table-responsive",
+          tableOutput("marginal_power_results")
         )
+      ))
+    }
+
+    source_controls <- if (isTRUE(state$options$simulation)) {
+      radioButtons(
+        "joint_power_source",
+        "Calculation source",
+        choices = c("Closed-form" = "theoretical", "Simulation" = "simulation"),
+        selected = "theoretical",
+        inline = TRUE
       )
     } else {
-      fluidRow(
-        column(
-          width = 12,
-          tags$h4("Closed-form"),
-          tableOutput("theoretical_joint_power")
-        )
-      )
+      tags$p("Closed-form calculation.", class = "app-help")
     }
+
+    tagList(
+      tags$p(
+        "Probability of rejecting the secondary endpoint after the primary "
+          , "endpoint is rejected.",
+        class = "app-help"
+      ),
+      source_controls,
+      div(class = "table-responsive", tableOutput("joint_power_results"))
+    )
   })
 
-  output$theoretical_joint_power <- renderTable({
+  output$joint_power_results <- renderTable({
     state <- current_state()
+    source <- if (is.null(input$joint_power_source)) {
+      "theoretical"
+    } else {
+      input$joint_power_source
+    }
+    power <- if (identical(source, "simulation") &&
+                 isTRUE(state$options$simulation)) {
+      state$empirical_results$joint_power_matrix
+    } else {
+      state$theoretical_results$joint_power_matrix
+    }
 
     joint_power_results_table(
-      state$theoretical_results$joint_power_matrix,
-      digits = state$options$display_digits
-    )
-  }, striped = TRUE, bordered = TRUE, rownames = FALSE)
-
-  output$simulation_joint_power <- renderTable({
-    state <- current_state()
-    req(isTRUE(state$options$simulation))
-
-    joint_power_results_table(
-      state$empirical_results$joint_power_matrix,
+      power,
       digits = state$options$display_digits
     )
   }, striped = TRUE, bordered = TRUE, rownames = FALSE)
