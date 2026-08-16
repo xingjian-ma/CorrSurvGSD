@@ -1925,9 +1925,10 @@ server <- function(input, output, session) {
           )
         )
       ),
+      div(
+      class = "result-sections",
       tabsetPanel(
       id = "result_sections",
-      class = "result-sections",
       tabPanel(
         "Design summary",
         tags$h3("Trial characteristics"),
@@ -1972,6 +1973,7 @@ server <- function(input, output, session) {
           inline = TRUE
         ),
         uiOutput("power_details")
+      )
       )
     )
     )

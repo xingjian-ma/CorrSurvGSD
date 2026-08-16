@@ -169,3 +169,30 @@ test_that("Shiny result tables expose the expected structures", {
   expect_identical(summary$Label[5], "Gatekept joint power")
   expect_true(all(vapply(joint, is.character, logical(1))))
 })
+
+test_that("Shiny renders the Results view after a successful pipeline run", {
+  skip_if_not_installed("shiny")
+  app <- load_shiny_app_environment()
+
+  shiny::testServer(app$server, {
+    session$setInputs(
+      n_T = 100,
+      n_C = 100,
+      median_PFS_C = 4,
+      median_OS_C = 8,
+      effect_mode = "hr",
+      HR_PFS = 0.8,
+      HR_OS = 0.85,
+      accrual_segments = 1,
+      accrual_rate_1 = 20,
+      d_PFS_vec = "50, 100",
+      alpha_spending_PFS = "OF",
+      alpha_spending_OS = "Pocock"
+    )
+    session$setInputs(run = 1)
+
+    expect_match(output$status$html, "Pipeline completed")
+    expect_match(output$results_panel$html, "Design summary")
+    expect_match(output$results_panel$html, "Gatekept joint power")
+  })
+})
