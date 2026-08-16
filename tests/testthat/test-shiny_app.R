@@ -146,6 +146,7 @@ test_that("Shiny result tables expose the expected structures", {
   joint <- app$joint_power_results_table(
     state$theoretical_results$joint_power_matrix
   )
+  summary <- app$result_summary_table(state)
 
   expect_equal(nrow(trial_design), 9)
   expect_equal(nrow(accrual), 1)
@@ -154,6 +155,7 @@ test_that("Shiny result tables expose the expected structures", {
   expect_equal(nrow(boundary_z), 4)
   expect_equal(nrow(marginal), 4)
   expect_equal(nrow(joint), 2)
+  expect_equal(nrow(summary), 5)
   expect_named(trial_design, c("Item", "Value"))
   expect_named(schedule, c("Look", "Target PFS events", "Derived OS events",
                            "Calendar cutoff"))
@@ -163,5 +165,7 @@ test_that("Shiny result tables expose the expected structures", {
   )
   expect_false(identical(boundary_z, boundary_hr))
   expect_false(identical(boundary_hr, boundary_p))
+  expect_named(summary, c("Label", "Value"))
+  expect_identical(summary$Label[5], "Gatekept joint power")
   expect_true(all(vapply(joint, is.character, logical(1))))
 })

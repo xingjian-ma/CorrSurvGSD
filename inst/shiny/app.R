@@ -259,6 +259,144 @@ boundary_results_table <- function(state, scale = c("z", "hr", "p")) {
   }))
 }
 
+result_summary_table <- function(state) {
+  design <- state$design
+  theoretical <- state$theoretical_results
+  digits <- state$options$display_digits
+  final_look <- design$L
+
+  data.frame(
+    Label = c(
+      "Total sample size",
+      "Final calendar cutoff",
+      "Final PFS marginal power",
+      "Final OS marginal power",
+      "Gatekept joint power"
+    ),
+    Value = c(
+      as.character(design$n_T + design$n_C),
+      format_result_value(design$A_vec[final_look], digits),
+      paste0(format_result_value(
+        theoretical$marginal_power[paste0("PFS_", final_look), "cumulative"],
+        digits
+      )),
+      paste0(format_result_value(
+        theoretical$marginal_power[paste0("OS_", final_look), "cumulative"],
+        digits
+      )),
+      format_result_value(theoretical$joint_power, digits)
+    ),
+    check.names = FALSE
+  )
+}
+
+plot_marginal_power <- function(state) {
+  theoretical <- state$theoretical_results$marginal_power
+  simulation <- if (isTRUE(state$options$simulation)) {
+    state$empirical_results$marginal_power
+  } else {
+    NULL
+  }
+  looks <- seq_len(state$design$L)
+  colors <- c(PFS = "#9f1d32", OS = "#3f596d")
+
+  graphics::plot(
+    looks,
+    theoretical[paste0("PFS_", looks), "cumulative"],
+    type = "n",
+    ylim = c(0, 1),
+    xlab = "Analysis look",
+    ylab = "Cumulative marginal power",
+    xaxt = "n"
+  )
+  graphics::axis(1, at = looks)
+  for (endpoint in names(colors)) {
+    values <- theoretical[paste0(endpoint, "_", looks), "cumulative"]
+    graphics::lines(looks, values, col = colors[[endpoint]], lwd = 2)
+    graphics::points(looks, values, col = colors[[endpoint]], pch = 16)
+  }
+  if (!is.null(simulation)) {
+    for (endpoint in names(colors)) {
+      values <- simulation[paste0(endpoint, "_", looks), "cumulative"]
+      graphics::lines(looks, values, col = colors[[endpoint]], lwd = 2,
+                      lty = 2)
+      graphics::points(looks, values, col = colors[[endpoint]], pch = 1)
+    }
+    legend_labels <- c(
+      "PFS closed-form", "OS closed-form", "PFS simulation", "OS simulation"
+    )
+    graphics::legend(
+      "bottomright",
+      legend = legend_labels,
+      col = c(colors[["PFS"]], colors[["OS"]], colors[["PFS"]], colors[["OS"]]),
+      lty = c(1, 1, 2, 2),
+      pch = c(16, 16, 1, 1),
+      bty = "n",
+      cex = 0.8
+    )
+  } else {
+    graphics::legend(
+      "bottomright",
+      legend = c("PFS", "OS"),
+      col = colors,
+      lty = 1,
+      pch = 16,
+      bty = "n",
+      cex = 0.85
+    )
+  }
+}
+
+plot_joint_power_heatmap <- function(state) {
+  power <- state$theoretical_results$joint_power_matrix
+  look_count <- nrow(power)
+  finite_power <- power[is.finite(power)]
+  palette <- grDevices::colorRampPalette(c("#fff2f3", "#9f1d32"))(100)
+  maximum <- if (length(finite_power) == 0) 1 else max(finite_power)
+
+  graphics::plot.new()
+  graphics::plot.window(
+    xlim = c(0.5, look_count + 0.5),
+    ylim = c(0.5, look_count + 0.5),
+    asp = 1
+  )
+  for (row in seq_len(look_count)) {
+    for (column in seq_len(look_count)) {
+      value <- power[row, column]
+      y_position <- look_count - row + 1
+      fill <- if (is.na(value)) {
+        "#eee8e9"
+      } else {
+        palette[max(1, ceiling(99 * value / maximum) + 1)]
+      }
+      label <- if (is.na(value)) {
+        "-"
+      } else {
+        formatC(value, format = "f", digits = 3)
+      }
+      graphics::rect(
+        column - 0.5,
+        y_position - 0.5,
+        column + 0.5,
+        y_position + 0.5,
+        col = fill,
+        border = "#ffffff"
+      )
+      graphics::text(column, y_position, label, cex = 0.8)
+    }
+  }
+  graphics::axis(1, at = seq_len(look_count), labels = colnames(power))
+  graphics::axis(
+    2,
+    at = rev(seq_len(look_count)),
+    labels = rownames(power),
+    las = 1
+  )
+  graphics::mtext("Secondary endpoint first crossing", side = 1, line = 2.3)
+  graphics::mtext("Primary endpoint first crossing", side = 2, line = 2.8)
+  graphics::box()
+}
+
 testing_summary_table <- function(state) {
   design <- state$design
   digits <- state$options$display_digits
@@ -1077,6 +1215,57 @@ ui <- fluidPage(
         background-color: #ffffff;
         box-shadow: 0 1px 4px rgba(49, 41, 43, 0.05);
       }
+      .result-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+        gap: 12px;
+        margin-bottom: 22px;
+      }
+      .result-summary-card {
+        min-height: 102px;
+        padding: 16px;
+        border: 1px solid #e4dadd;
+        border-top: 3px solid #9f1d32;
+        border-radius: 8px;
+        background-color: #ffffff;
+        box-shadow: 0 2px 6px rgba(49, 41, 43, 0.05);
+      }
+      .result-summary-label {
+        display: block;
+        color: #75666a;
+        font-size: 12px;
+        line-height: 1.3;
+      }
+      .result-summary-value {
+        display: block;
+        margin-top: 8px;
+        color: #7d1020;
+        font-size: 24px;
+        font-weight: 700;
+      }
+      .result-chart {
+        min-height: 320px;
+        margin-bottom: 20px;
+        padding: 16px;
+        border: 1px solid #e4dadd;
+        border-radius: 8px;
+        background-color: #ffffff;
+        box-shadow: 0 2px 6px rgba(49, 41, 43, 0.05);
+      }
+      .result-chart h3 {
+        margin-top: 0;
+        color: #7d1020;
+        font-size: 17px;
+      }
+      .result-chart .shiny-plot-output {
+        width: 100% !important;
+      }
+      .result-sections > .nav-tabs > li.active > a,
+      .result-sections > .nav-tabs > li.active > a:focus,
+      .result-sections > .nav-tabs > li.active > a:hover {
+        border-top: 2px solid #9f1d32;
+        color: #7d1020;
+      }
       @media (max-width: 767px) {
         .app-title {
           margin-bottom: 14px;
@@ -1084,6 +1273,9 @@ ui <- fluidPage(
         }
         .intro-hero {
           padding: 22px;
+        }
+        .result-chart {
+          min-height: 280px;
         }
       }
       table {
@@ -1094,7 +1286,7 @@ ui <- fluidPage(
     tags$script(HTML(
       "Shiny.addCustomMessageHandler('corrsurvInputError', function(ids) {
         $('.app-input-error').removeClass('app-input-error');
-        ids.forEach(function(id) {
+        (Array.isArray(ids) ? ids : []).forEach(function(id) {
           var element = $('#' + id);
           element.closest('.form-group').addClass('app-input-error');
           element.closest('td').addClass('app-input-error');
@@ -1457,7 +1649,10 @@ ui <- fluidPage(
           "Introduction",
           div(
             class = "intro-hero",
-            tags$div("Clinical trial design evaluation", class = "intro-eyebrow"),
+            tags$div(
+              "Clinical trial design evaluation",
+              class = "intro-eyebrow"
+            ),
             tags$h2("Closed-form evaluation for PFS and OS designs"),
             tags$p(
               "CorrSurvGSD evaluates correlated group sequential designs for "
@@ -1710,8 +1905,29 @@ server <- function(input, output, session) {
       ))
     }
 
-    tabsetPanel(
+    tagList(
+      uiOutput("result_summary"),
+      fluidRow(
+        column(
+          width = 6,
+          div(
+            class = "result-chart",
+            tags$h3("Cumulative marginal power"),
+            plotOutput("marginal_power_plot", height = "260px")
+          )
+        ),
+        column(
+          width = 6,
+          div(
+            class = "result-chart",
+            tags$h3("Gatekept joint power"),
+            plotOutput("joint_power_heatmap", height = "260px")
+          )
+        )
+      ),
+      tabsetPanel(
       id = "result_sections",
+      class = "result-sections",
       tabPanel(
         "Design summary",
         tags$h3("Trial characteristics"),
@@ -1757,6 +1973,7 @@ server <- function(input, output, session) {
         ),
         uiOutput("power_details")
       )
+    )
     )
   })
 
@@ -1810,6 +2027,19 @@ server <- function(input, output, session) {
   output$analysis_schedule <- render_result_table(analysis_schedule_table)
   output$testing_summary <- render_result_table(testing_summary_table)
   output$endpoint_testing <- render_result_table(endpoint_testing_table)
+  output$result_summary <- renderUI({
+    summary <- result_summary_table(current_state())
+    div(
+      class = "result-summary-grid",
+      lapply(seq_len(nrow(summary)), function(index) {
+        div(
+          class = "result-summary-card",
+          tags$span(summary$Label[index], class = "result-summary-label"),
+          tags$span(summary$Value[index], class = "result-summary-value")
+        )
+      })
+    )
+  })
   output$boundary_results <- render_result_table(function(state) {
     scale <- if (is.null(input$boundary_scale)) "z" else input$boundary_scale
     boundary_results_table(state, scale = scale)
@@ -1817,6 +2047,12 @@ server <- function(input, output, session) {
   output$marginal_power_results <- render_result_table(
     marginal_power_results_table
   )
+  output$marginal_power_plot <- renderPlot({
+    plot_marginal_power(current_state())
+  }, res = 96)
+  output$joint_power_heatmap <- renderPlot({
+    plot_joint_power_heatmap(current_state())
+  }, res = 96)
 
   output$power_details <- renderUI({
     state <- current_state()
