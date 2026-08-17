@@ -97,7 +97,7 @@ format_power_comparison <- function(closed_form, simulation = NULL,
 }
 
 joint_power_results_table <- function(power, simulation_power = NULL,
-                                      digits = 4) {
+                                      digits = 4, include_totals = TRUE) {
   formatted_power <- matrix(
     NA_character_,
     nrow = nrow(power),
@@ -118,17 +118,67 @@ joint_power_results_table <- function(power, simulation_power = NULL,
       )
     }
   }
-  row_labels <- gsub("_", ", look ", rownames(power), fixed = TRUE)
-  column_labels <- gsub("_", ", look ", colnames(power), fixed = TRUE)
+  row_labels <- gsub("_", ": look ", rownames(power), fixed = TRUE)
+  column_labels <- gsub("_", ": look ", colnames(power), fixed = TRUE)
+  row_endpoint <- sub("_.*", "", rownames(power)[1])
+  column_endpoint <- sub("_.*", "", colnames(power)[1])
+  across_columns_label <- paste0(column_endpoint, ": all looks")
+  across_rows_label <- paste0(row_endpoint, ": all looks")
 
   result <- data.frame(
     row_label = row_labels,
     formatted_power,
     check.names = FALSE
   )
-  names(result)[1] <- "Endpoint, look"
+  names(result)[1] <- "Endpoint: look"
   names(result)[-1] <- column_labels
-  result
+
+  if (!isTRUE(include_totals)) {
+    return(result)
+  }
+
+  result[[across_columns_label]] <- vapply(seq_len(nrow(power)), function(row) {
+    simulation_total <- if (is.null(simulation_power)) {
+      NULL
+    } else {
+      sum(simulation_power[row, ], na.rm = TRUE)
+    }
+    format_power_comparison(
+      sum(power[row, ], na.rm = TRUE),
+      simulation_total,
+      digits
+    )
+  }, character(1))
+
+  total_row <- data.frame(
+    row_label = across_rows_label,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  for (column in seq_len(ncol(power))) {
+    simulation_total <- if (is.null(simulation_power)) {
+      NULL
+    } else {
+      sum(simulation_power[, column], na.rm = TRUE)
+    }
+    total_row[[column_labels[column]]] <- format_power_comparison(
+      sum(power[, column], na.rm = TRUE),
+      simulation_total,
+      digits
+    )
+  }
+  total_row[[across_columns_label]] <- format_power_comparison(
+    sum(power, na.rm = TRUE),
+    if (is.null(simulation_power)) {
+      NULL
+    } else {
+      sum(simulation_power, na.rm = TRUE)
+    },
+    digits
+  )
+  names(total_row)[1] <- "Endpoint: look"
+
+  rbind(result, total_row)
 }
 
 trial_design_table <- function(state) {
@@ -323,7 +373,7 @@ testing_framework_details <- function(state) {
   data.frame(
     Label = c(
       "One-sided alpha",
-      "Gatekeeping order",
+      "Testing order",
       "PFS alpha spending",
       "OS alpha spending"
     ),
@@ -353,7 +403,7 @@ testing_summary_table <- function(state) {
   digits <- state$options$display_digits
 
   data.frame(
-    Item = c("One-sided Type I error", "Gatekeeping order"),
+    Item = c("One-sided Type I error", "Testing order"),
     Value = c(
       format_result_value(design$alpha, digits),
       paste(design$hierarchy_order, collapse = " -> ")
@@ -396,6 +446,32 @@ optional_number <- function(value, name) {
   }
 
   value
+}
+
+demo_input_values <- function() {
+  list(
+    n_T = 100,
+    n_C = 100,
+    median_PFS_C = 4,
+    median_OS_C = 8,
+    effect_mode = "hr",
+    HR_PFS = 0.8,
+    HR_OS = 0.85,
+    accrual_segments = 1,
+    accrual_rate_1 = 20,
+    hierarchy_primary = "PFS",
+    d_PFS_vec = "50, 100",
+    alpha = 0.025,
+    alpha_spending_PFS = "OF",
+    alpha_spending_OS = "OF",
+    simulation = FALSE,
+    n_sim = 500,
+    simulation_seed = 1,
+    show_computation_settings = FALSE,
+    tol = 1e-8,
+    integration_seed = 1,
+    display_digits = 4
+  )
 }
 
 look_input_id <- function(type, endpoint, look) {
@@ -792,14 +868,15 @@ translate_pipeline_error <- function(message) {
       "Enter a futility HR for every selected futility look."
     )),
     list("median_PFS_C must be less than median_OS_C", paste(
-      "Control median PFS must be shorter than control median OS."
+      "Control median OS must be longer than control median PFS."
     )),
     list("median_PFS_T must be less than median_OS_T", paste(
-      "Treatment median PFS must be shorter than treatment median OS."
+      "Treatment median OS must be longer than treatment median PFS."
     )),
     list("lambda_1_T must be positive", paste(
-      "The selected PFS and OS treatment effects are incompatible with ",
-      "the illness-to-death model. Adjust the treatment assumptions."
+      "The implied treatment median OS must be longer than the implied ",
+      "treatment median PFS. Adjust the treatment hazard ratios or control ",
+      "medians."
     )),
     list("R_s must be positive", paste(
       "The accrual schedule cannot enroll the planned sample size. Adjust ",
@@ -992,8 +1069,23 @@ ui <- fluidPage(
       .app-run-button:focus {
         background-color: #7d1020;
       }
+      .intro-demo-button,
       .app-download-button {
-        margin-bottom: 14px;
+        border-color: #9f1d32;
+        background-color: #9f1d32;
+        color: #ffffff;
+        font-weight: 600;
+      }
+      .app-download-button {
+        margin-top: 12px;
+      }
+      .intro-demo-button:hover,
+      .intro-demo-button:focus,
+      .app-download-button:hover,
+      .app-download-button:focus {
+        border-color: #7d1020;
+        background-color: #7d1020;
+        color: #ffffff;
       }
       .app-status {
         min-height: 36px;
@@ -1100,7 +1192,12 @@ ui <- fluidPage(
       .intro-hero h2 {
         margin-top: 0;
         color: #7d1020;
+        font-size: 24px;
         font-weight: 600;
+        line-height: 1.3;
+      }
+      .intro-demo-button {
+        margin-top: 8px;
       }
       .intro-grid {
         display: grid;
@@ -1136,20 +1233,15 @@ ui <- fluidPage(
       .tab-content {
         padding-top: 18px;
       }
-      .intro-eyebrow {
-        margin-bottom: 8px;
-        color: #9f1d32;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
       .intro-lead {
         max-width: 760px;
         margin-bottom: 0;
         color: #53464a;
         font-size: 16px;
         line-height: 1.6;
+      }
+      .intro-lead + .intro-lead {
+        margin-top: 16px;
       }
       .intro-output-list {
         display: grid;
@@ -1167,12 +1259,12 @@ ui <- fluidPage(
         box-shadow: 0 1px 4px rgba(49, 41, 43, 0.05);
       }
       .result-context {
-        margin-bottom: 18px;
-        padding: 13px 16px;
-        border: 1px solid #eadfe1;
-        border-radius: 6px;
-        background-color: #fcfaf9;
-        color: #68565a;
+        margin-bottom: 20px;
+        padding: 22px 24px;
+        border: 1px solid #edcfd4;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #fff4f5, #ffffff);
+        color: #53464a;
       }
       .result-context-title {
         margin-bottom: 5px;
@@ -1201,6 +1293,10 @@ ui <- fluidPage(
         border-top: 2px solid #9f1d32;
         color: #7d1020;
       }
+      #joint_power_results th:first-child,
+      #joint_power_results td:first-child {
+        font-weight: 700;
+      }
       @media (max-width: 767px) {
         .app-title {
           margin-bottom: 14px;
@@ -1227,7 +1323,10 @@ ui <- fluidPage(
       });"
     ))
   ),
-  div(class = "app-title", titlePanel("Group-Sequential PFS and OS Design")),
+  div(
+    class = "app-title",
+    titlePanel("Group sequential design with sequential testing order of PFS and OS")
+  ),
   sidebarLayout(
     sidebarPanel(
       width = 4,
@@ -1386,13 +1485,13 @@ ui <- fluidPage(
       ),
       selectInput(
         "hierarchy_primary",
-        "Primary endpoint",
-        choices = c("PFS", "OS"),
+        "Testing order",
+        choices = c("PFS -> OS" = "PFS", "OS -> PFS" = "OS"),
         selected = "PFS"
       ),
       tags$p(
-        "The primary endpoint is tested first. The secondary endpoint is ",
-        "tested only after the primary endpoint is rejected.",
+        "Choose the fixed testing sequence. The second endpoint is tested ",
+        "only after the first endpoint is rejected.",
         class = "input-help"
       ),
       textInput(
@@ -1574,22 +1673,29 @@ ui <- fluidPage(
     mainPanel(
       width = 8,
       uiOutput("status"),
-      uiOutput("download_control"),
       tabsetPanel(
         id = "main_tabs",
         tabPanel(
           "Introduction",
           div(
             class = "intro-hero",
-            tags$div(
-              "Clinical trial design evaluation",
-              class = "intro-eyebrow"
-            ),
-            tags$h2("Closed-form evaluation for PFS and OS designs"),
+            tags$h2("Closed-form evaluation engine for sequential PFS and OS testing"),
             tags$p(
               "CorrSurvGSD evaluates correlated group sequential designs for "
                 , "progression-free survival (PFS) and overall survival (OS) "
-                , "under the Fleischer model.",
+                , "with a fixed testing sequence: PFS -> OS or OS -> PFS. "
+                , "The second endpoint is tested only after the first is "
+                , "rejected.",
+              class = "intro-lead"
+            ),
+            tags$p(
+              paste0(
+                "Time to progression (TTP) and OS are "
+                  , "modeled as independent exponential times. PFS is the "
+                  , "smaller of TTP and OS, that is, PFS = min(TTP, OS). "
+                  , "Treatment effects can be specified as hazard ratios or "
+                  , "treatment-group median survival times."
+              ),
               class = "intro-lead"
             )
           ),
@@ -1599,24 +1705,29 @@ ui <- fluidPage(
               class = "intro-card",
               tags$h4("1. Configure"),
               tags$p(
-                "Define sample sizes, control-group medians, accrual, planned "
-                  , "PFS events, and alpha-spending choices."
+                "Set the main design inputs, including participants, survival "
+                  , "assumptions, and the analysis schedule."
+              ),
+              actionButton(
+                "load_demo",
+                "Load demo values",
+                class = "intro-demo-button"
               )
             ),
             div(
               class = "intro-card",
-              tags$h4("2. Evaluate"),
+              tags$h4("2. Calculate"),
               tags$p(
-                "Specify treatment effects using hazard ratios or treatment "
-                  , "medians, then run the closed-form pipeline."
+                "Run the closed-form calculation using the configured design "
+                  , "parameters."
               )
             ),
             div(
               class = "intro-card",
-              tags$h4("3. Review"),
+              tags$h4("3. Evaluate"),
               tags$p(
-                "Review design assumptions, decision boundaries, and power "
-                  , "summaries. Compare simulation when it is enabled."
+                "Assess design assumptions, decision boundaries, and power "
+                  , "summaries, then compare with simulation when enabled."
               )
             )
           ),
@@ -1631,6 +1742,78 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  demo_accrual_rate_pending <- reactiveVal(FALSE)
+
+  observeEvent(input$accrual_segments, {
+    if (!isTRUE(demo_accrual_rate_pending())) {
+      return()
+    }
+
+    session$onFlushed(function() {
+      updateNumericInput(session, "accrual_rate_1", value = 20)
+      demo_accrual_rate_pending(FALSE)
+    }, once = TRUE)
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$load_demo, {
+    demo <- demo_input_values()
+
+    updateNumericInput(session, "n_T", value = demo$n_T)
+    updateNumericInput(session, "n_C", value = demo$n_C)
+    updateNumericInput(session, "median_PFS_C", value = demo$median_PFS_C)
+    updateNumericInput(session, "median_OS_C", value = demo$median_OS_C)
+    updateRadioButtons(session, "effect_mode", selected = demo$effect_mode)
+    updateNumericInput(session, "HR_PFS", value = demo$HR_PFS)
+    updateNumericInput(session, "HR_OS", value = demo$HR_OS)
+    updateNumericInput(
+      session,
+      "accrual_segments",
+      value = demo$accrual_segments
+    )
+    demo_accrual_rate_pending(TRUE)
+    updateSelectInput(
+      session,
+      "hierarchy_primary",
+      selected = demo$hierarchy_primary
+    )
+    updateTextInput(session, "d_PFS_vec", value = demo$d_PFS_vec)
+    updateNumericInput(session, "alpha", value = demo$alpha)
+    updateSelectInput(
+      session,
+      "alpha_spending_PFS",
+      selected = demo$alpha_spending_PFS
+    )
+    updateSelectInput(
+      session,
+      "alpha_spending_OS",
+      selected = demo$alpha_spending_OS
+    )
+    updateCheckboxInput(session, "simulation", value = demo$simulation)
+    updateNumericInput(session, "n_sim", value = demo$n_sim)
+    updateNumericInput(
+      session,
+      "simulation_seed",
+      value = demo$simulation_seed
+    )
+    updateCheckboxInput(
+      session,
+      "show_computation_settings",
+      value = demo$show_computation_settings
+    )
+    updateNumericInput(session, "tol", value = demo$tol)
+    updateNumericInput(
+      session,
+      "integration_seed",
+      value = demo$integration_seed
+    )
+    updateNumericInput(
+      session,
+      "display_digits",
+      value = demo$display_digits
+    )
+
+  }, ignoreInit = TRUE)
+
   required_inputs <- reactive({
     required_input_labels(input)
   })
@@ -1902,14 +2085,16 @@ server <- function(input, output, session) {
         "Marginal power" = marginal_power_results_table(state),
         "Closed-form joint power" = joint_power_results_table(
           state$theoretical_results$joint_power_matrix,
-          digits = digits
+          digits = digits,
+          include_totals = FALSE
         )
       )
 
       if (isTRUE(state$options$simulation)) {
         sections[["Simulation joint power"]] <- joint_power_results_table(
           state$empirical_results$joint_power_matrix,
-          digits = digits
+          digits = digits,
+          include_totals = FALSE
         )
       }
 
@@ -1938,6 +2123,7 @@ server <- function(input, output, session) {
         result_context_text(current_state()),
         class = "result-context-details"
       ),
+      uiOutput("download_control"),
       class = "result-context"
     )
   })
@@ -1980,7 +2166,9 @@ server <- function(input, output, session) {
         "Rows identify the primary endpoint's first efficacy crossing, and "
           , "columns identify the secondary endpoint's first efficacy "
           , "crossing. Each cell is the joint probability for that pair of "
-          , "looks; - marks an impossible ordering. ",
+          , "looks; - marks an impossible ordering. The final row and column "
+          , "show totals across feasible cells, and the lower-right cell is "
+          , "total joint power. ",
         comparison_note,
         class = "app-help"
       ),
