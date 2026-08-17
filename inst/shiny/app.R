@@ -52,46 +52,82 @@ marginal_power_results_table <- function(state) {
   result <- data.frame(
     Endpoint = vapply(labels, `[[`, character(1), 1),
     Look = as.integer(vapply(labels, `[[`, character(1), 2)),
-    "Closed-form incremental power" = vapply(
-      theoretical[, "incremental"], format_result_value, character(1),
-      digits = digits
+    "Incremental power" = vapply(
+      seq_len(nrow(theoretical)),
+      function(index) {
+        format_power_comparison(
+          theoretical[index, "incremental"],
+          if (is.null(simulation)) NULL else simulation[index, "incremental"],
+          digits
+        )
+      },
+      character(1)
+    ),
+    "Cumulative power" = vapply(
+      seq_len(nrow(theoretical)),
+      function(index) {
+        format_power_comparison(
+          theoretical[index, "cumulative"],
+          if (is.null(simulation)) NULL else simulation[index, "cumulative"],
+          digits
+        )
+      },
+      character(1)
     ),
     check.names = FALSE
   )
 
-  if (!is.null(simulation)) {
-    result[["Simulation incremental power"]] <- vapply(
-      simulation[, "incremental"], format_result_value, character(1),
-      digits = digits
-    )
-  }
-  result[["Closed-form cumulative power"]] <- vapply(
-    theoretical[, "cumulative"], format_result_value, character(1),
-    digits = digits
-  )
-
-  if (!is.null(simulation)) {
-    result[["Simulation cumulative power"]] <- vapply(
-      simulation[, "cumulative"], format_result_value, character(1),
-      digits = digits
-    )
-  }
-
   result
 }
 
-joint_power_results_table <- function(power, digits = 4) {
-  formatted_power <- apply(
-    power, c(1, 2), format_result_value, digits = digits
+format_power_comparison <- function(closed_form, simulation = NULL,
+                                    digits = 4) {
+  closed_form_value <- format_result_value(closed_form, digits)
+
+  if (is.null(simulation) || is.na(closed_form)) {
+    return(closed_form_value)
+  }
+
+  paste0(
+    closed_form_value,
+    " (",
+    format_result_value(simulation, digits),
+    ")"
   )
+}
+
+joint_power_results_table <- function(power, simulation_power = NULL,
+                                      digits = 4) {
+  formatted_power <- matrix(
+    NA_character_,
+    nrow = nrow(power),
+    ncol = ncol(power),
+    dimnames = dimnames(power)
+  )
+  for (row in seq_len(nrow(power))) {
+    for (column in seq_len(ncol(power))) {
+      simulation_value <- if (is.null(simulation_power)) {
+        NULL
+      } else {
+        simulation_power[row, column]
+      }
+      formatted_power[row, column] <- format_power_comparison(
+        power[row, column],
+        simulation_value,
+        digits
+      )
+    }
+  }
+  row_labels <- gsub("_", ", look ", rownames(power), fixed = TRUE)
+  column_labels <- gsub("_", ", look ", colnames(power), fixed = TRUE)
 
   result <- data.frame(
-    row_label = rownames(power),
+    row_label = row_labels,
     formatted_power,
     check.names = FALSE
   )
-  names(result)[1] <- ""
-  names(result)[-1] <- colnames(power)
+  names(result)[1] <- "Endpoint, look"
+  names(result)[-1] <- column_labels
   result
 }
 
@@ -242,7 +278,7 @@ boundary_results_table <- function(state, scale = c("z", "hr", "p")) {
     data.frame(
       Endpoint = endpoint,
       Look = looks,
-      "Configured futility HR threshold" = vapply(
+      "Futility HR" = vapply(
         futility_positions,
         function(position) {
           if (is.na(position)) {
@@ -305,11 +341,9 @@ result_context_text <- function(state) {
   design <- state$design
 
   paste(
-    "Results for the last completed design",
     paste0(design$n_T + design$n_C, " participants"),
     paste0(design$L, " analysis looks"),
     paste(design$hierarchy_order, collapse = " -> "),
-    "gatekeeping",
     sep = " · "
   )
 }
@@ -1134,30 +1168,32 @@ ui <- fluidPage(
       }
       .result-context {
         margin-bottom: 18px;
-        padding: 12px 15px;
-        border-left: 3px solid #9f1d32;
-        border-radius: 4px;
-        background-color: #fff8f8;
-        color: #68565a;
-        font-size: 13px;
-      }
-      .testing-framework {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px 18px;
-        margin-bottom: 14px;
-        padding: 12px 14px;
-        border: 1px solid #e4dadd;
+        padding: 13px 16px;
+        border: 1px solid #eadfe1;
         border-radius: 6px;
-        background-color: #ffffff;
+        background-color: #fcfaf9;
+        color: #68565a;
       }
-      .testing-framework-item {
-        color: #5d4c50;
+      .result-context-title {
+        margin-bottom: 5px;
+        color: #7d1020;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .result-context-details {
         font-size: 13px;
       }
-      .testing-framework-item span {
+      .result-section-label {
+        display: block;
+        margin: 18px 0 8px;
         color: #7d1020;
-        font-weight: 600;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .result-sections .tab-pane > .result-section-label:first-child {
+        margin-top: 0;
       }
       .result-sections > .nav-tabs > li.active > a,
       .result-sections > .nav-tabs > li.active > a:focus,
@@ -1584,14 +1620,6 @@ ui <- fluidPage(
               )
             )
           ),
-          tags$h3("Key outputs"),
-          tags$ul(
-            class = "intro-output-list",
-            tags$li("Calendar cutoffs and expected event counts by look."),
-            tags$li("Z-scale, HR-scale, and one-sided p-scale boundaries."),
-            tags$li("Marginal power and gatekept joint power summaries."),
-            tags$li("Optional reproducible Monte Carlo comparisons.")
-          )
         ),
         tabPanel(
           "Results",
@@ -1802,20 +1830,24 @@ server <- function(input, output, session) {
           id = "result_sections",
           tabPanel(
             "Design summary",
-            tags$h3("Trial characteristics"),
+            tags$div("Trial characteristics", class = "result-section-label"),
             div(class = "table-responsive", tableOutput("trial_design")),
-            tags$h3("Accrual schedule"),
+            tags$div("Accrual schedule", class = "result-section-label"),
             div(class = "table-responsive", tableOutput("accrual_design")),
-            tags$h3("Analysis schedule"),
+            tags$div("Analysis schedule", class = "result-section-label"),
             div(class = "table-responsive", tableOutput("analysis_schedule"))
           ),
           tabPanel(
             "Boundaries",
-            tags$h3("Testing framework"),
-            uiOutput("testing_framework"),
+            tags$div("Testing framework", class = "result-section-label"),
+            div(
+              class = "table-responsive",
+              tableOutput("testing_framework")
+            ),
+            tags$div("Boundary scale", class = "result-section-label"),
             radioButtons(
               "boundary_scale",
-              "Boundary scale",
+              NULL,
               choices = c(
                 "Z-score" = "z",
                 "Hazard ratio" = "hr",
@@ -1833,12 +1865,13 @@ server <- function(input, output, session) {
           ),
           tabPanel(
             "Power",
+            tags$div("Power summary", class = "result-section-label"),
             radioButtons(
               "power_view",
-              "Power summary",
+              NULL,
               choices = c(
                 "Marginal power" = "marginal",
-                "Gatekept joint power" = "joint"
+                "Joint power" = "joint"
               ),
               selected = "marginal",
               inline = TRUE
@@ -1852,7 +1885,7 @@ server <- function(input, output, session) {
 
   output$download_tables <- downloadHandler(
     filename = function() {
-      paste0("group-sequential-design-", Sys.Date(), ".csv")
+      paste0("CorrSurvGSD_results_", format(Sys.time(), "%Y-%m-%d_%H%M%S"), ".csv")
     },
     content = function(file) {
       state <- current_state()
@@ -1900,23 +1933,15 @@ server <- function(input, output, session) {
   output$analysis_schedule <- render_result_table(analysis_schedule_table)
   output$result_context <- renderUI({
     tags$div(
-      result_context_text(current_state()),
+      tags$div("Overview", class = "result-context-title"),
+      tags$div(
+        result_context_text(current_state()),
+        class = "result-context-details"
+      ),
       class = "result-context"
     )
   })
-  output$testing_framework <- renderUI({
-    framework <- testing_framework_details(current_state())
-    div(
-      class = "testing-framework",
-      lapply(seq_len(nrow(framework)), function(index) {
-        tags$div(
-          tags$span(paste0(framework$Label[index], ": ")),
-          framework$Value[index],
-          class = "testing-framework-item"
-        )
-      })
-    )
-  })
+  output$testing_framework <- render_result_table(testing_framework_details)
   output$boundary_results <- render_result_table(function(state) {
     scale <- if (is.null(input$boundary_scale)) "z" else input$boundary_scale
     boundary_results_table(state, scale = scale)
@@ -1930,11 +1955,17 @@ server <- function(input, output, session) {
     power_view <- if (is.null(input$power_view)) "marginal" else {
       input$power_view
     }
+    comparison_note <- if (isTRUE(state$options$simulation)) {
+      "The value in parentheses is the simulation estimate."
+    } else {
+      NULL
+    }
 
     if (identical(power_view, "marginal")) {
       return(tagList(
         tags$p(
-          "Endpoint-level efficacy probability by analysis look.",
+          "Endpoint-level efficacy probability by analysis look. ",
+          comparison_note,
           class = "app-help"
         ),
         div(
@@ -1944,45 +1975,30 @@ server <- function(input, output, session) {
       ))
     }
 
-    source_controls <- if (isTRUE(state$options$simulation)) {
-      radioButtons(
-        "joint_power_source",
-        "Calculation source",
-        choices = c("Closed-form" = "theoretical", "Simulation" = "simulation"),
-        selected = "theoretical",
-        inline = TRUE
-      )
-    } else {
-      tags$p("Closed-form calculation.", class = "app-help")
-    }
-
     tagList(
       tags$p(
-        "Probability of rejecting the secondary endpoint after the primary "
-          , "endpoint is rejected.",
+        "Rows identify the primary endpoint's first efficacy crossing, and "
+          , "columns identify the secondary endpoint's first efficacy "
+          , "crossing. Each cell is the joint probability for that pair of "
+          , "looks; - marks an impossible ordering. ",
+        comparison_note,
         class = "app-help"
       ),
-      source_controls,
       div(class = "table-responsive", tableOutput("joint_power_results"))
     )
   })
 
   output$joint_power_results <- renderTable({
     state <- current_state()
-    source <- if (is.null(input$joint_power_source)) {
-      "theoretical"
-    } else {
-      input$joint_power_source
-    }
-    power <- if (identical(source, "simulation") &&
-                 isTRUE(state$options$simulation)) {
+    simulation_power <- if (isTRUE(state$options$simulation)) {
       state$empirical_results$joint_power_matrix
     } else {
-      state$theoretical_results$joint_power_matrix
+      NULL
     }
 
     joint_power_results_table(
-      power,
+      state$theoretical_results$joint_power_matrix,
+      simulation_power = simulation_power,
       digits = state$options$display_digits
     )
   }, striped = TRUE, bordered = TRUE, rownames = FALSE)

@@ -168,7 +168,7 @@ test_that("Shiny result tables expose the expected structures", {
     c(
       "Endpoint",
       "Look",
-      "Configured futility HR threshold",
+      "Futility HR",
       "Futility boundary",
       "Efficacy boundary"
     )
@@ -179,7 +179,46 @@ test_that("Shiny result tables expose the expected structures", {
                fixed = TRUE)
   expect_identical(framework$Label[2], "Gatekeeping order")
   expect_match(context, "200 participants")
+  expect_identical(names(joint)[1], "Endpoint, look")
+  expect_identical(joint[[1]][1], "PFS, look 1")
+  expect_identical(names(joint)[2], "OS, look 1")
   expect_true(all(vapply(joint, is.character, logical(1))))
+})
+
+test_that("Shiny power tables place simulation values in parentheses", {
+  skip_if_not_installed("shiny")
+  app <- load_shiny_app_environment()
+  state <- make_test_state(
+    stage = "closed",
+    n_T = 100,
+    n_C = 100,
+    d_PFS_vec = c(50, 100),
+    v_vec = c(200 / 12),
+    median_PFS_C = log(2) / 0.25,
+    median_OS_C = log(2) / 0.10,
+    HR_PFS = 0.8,
+    HR_OS = 0.85,
+    alpha_spending_PFS = "OF",
+    alpha_spending_OS = "OF"
+  )
+  state$options$simulation <- TRUE
+  state$empirical_results <- list(
+    marginal_power = state$theoretical_results$marginal_power,
+    joint_power_matrix = state$theoretical_results$joint_power_matrix
+  )
+
+  marginal <- app$marginal_power_results_table(state)
+  joint <- app$joint_power_results_table(
+    state$theoretical_results$joint_power_matrix,
+    simulation_power = state$empirical_results$joint_power_matrix
+  )
+
+  expect_named(
+    marginal,
+    c("Endpoint", "Look", "Incremental power", "Cumulative power")
+  )
+  expect_match(marginal$`Incremental power`[1], "\\(")
+  expect_match(joint[[2]][1], "\\(")
 })
 
 test_that("Shiny renders the Results view after a successful pipeline run", {
@@ -205,7 +244,7 @@ test_that("Shiny renders the Results view after a successful pipeline run", {
 
     expect_match(output$status$html, "Pipeline completed")
     expect_match(output$results_panel$html, "Design summary")
-    expect_match(output$results_panel$html, "Gatekept joint power")
+    expect_match(output$results_panel$html, "Joint power")
 
     session$setInputs(n_T = 120)
 
