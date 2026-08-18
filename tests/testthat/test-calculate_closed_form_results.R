@@ -34,6 +34,48 @@ test_that("boundary helpers and mean drift preserve reference values", {
   expect_true(is.infinite(staged[1, "efficacy"]))
   expect_true(is.finite(staged[1, "futility"]))
   expect_true(is.finite(staged[2, "efficacy"]))
+  of_boundary <- build_boundary(
+    d_vec = c(50, 100),
+    L = 2,
+    alpha = 0.025,
+    alpha_spending = "OF",
+    alpha_spending_gamma = NA_real_,
+    efficacy_looks = c(1, 2),
+    futility_looks = integer(0),
+    futility_HR = numeric(0),
+    r = 1
+  )
+  pocock_boundary <- build_boundary(
+    d_vec = c(50, 100),
+    L = 2,
+    alpha = 0.025,
+    alpha_spending = "Pocock",
+    alpha_spending_gamma = NA_real_,
+    efficacy_looks = c(1, 2),
+    futility_looks = integer(0),
+    futility_HR = numeric(0),
+    r = 1
+  )
+  expect_equal(
+    of_boundary[, "efficacy"],
+    gsDesign::gsDesign(
+      k = 2,
+      alpha = 0.025,
+      timing = c(0.5, 1),
+      test.type = 1,
+      sfu = gsDesign::sfLDOF
+    )$upper$bound
+  )
+  expect_equal(
+    pocock_boundary[, "efficacy"],
+    gsDesign::gsDesign(
+      k = 2,
+      alpha = 0.025,
+      timing = c(0.5, 1),
+      test.type = 1,
+      sfu = gsDesign::sfLDPocock
+    )$upper$bound
+  )
   expect_equal(
     mean_drift(0.8, 1, c(50, 100)),
     -log(0.8) * sqrt(c(50, 100) / 4)

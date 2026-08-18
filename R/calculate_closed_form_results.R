@@ -31,11 +31,16 @@ build_boundary <- function(d_vec, L, alpha, alpha_spending,
       timing = active_d_vec / d_vec[L],
       test.type = 1
     )
+    # Map the user-facing labels to the requested Lan-DeMets functions.
     if (identical(alpha_spending, "HSD")) {
       gs_design_arguments$sfu <- gsDesign::sfHSD
       gs_design_arguments$sfupar <- alpha_spending_gamma
+    } else if (identical(alpha_spending, "OF")) {
+      gs_design_arguments$sfu <- gsDesign::sfLDOF
+    } else if (identical(alpha_spending, "Pocock")) {
+      gs_design_arguments$sfu <- gsDesign::sfLDPocock
     } else {
-      gs_design_arguments$sfu <- alpha_spending
+      stop("alpha_spending must be OF, Pocock, or HSD.")
     }
     efficacy_design <- do.call(gsDesign::gsDesign, gs_design_arguments)
     boundary[efficacy_looks, "efficacy"] <- efficacy_design$upper$bound
