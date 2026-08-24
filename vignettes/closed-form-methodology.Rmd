@@ -90,16 +90,23 @@ separately from theoretical and optional empirical results.
 state_sections <- data.frame(
   Section = c("Validated design", "Numerical and simulation options",
               "Theoretical results", "Empirical results"),
-  Location = c("state$design", "state$options",
-               "state$theoretical_results",
-               if (is.null(state$empirical_results)) {
-                 "Not created when simulation = FALSE"
-               } else {
-                 "state$empirical_results"
-               }),
+  Location = paste0(
+    "<code>",
+    gsub(
+      "$", "&#36;",
+      c("state$design", "state$options", "state$theoretical_results",
+        if (is.null(state$empirical_results)) {
+          "Not created when simulation = FALSE"
+        } else {
+          "state$empirical_results"
+        }),
+      fixed = TRUE
+    ),
+    "</code>"
+  ),
   check.names = FALSE
 )
-knitr::kable(state_sections)
+knitr::kable(state_sections, escape = FALSE)
 names(state$theoretical_results)
 ```
 
@@ -125,34 +132,6 @@ summary`, `Boundaries`, and `Power` tabs. Boundary values can be viewed on Z,
 hazard-ratio, or one-sided p-value scales, and the Power tab switches between
 marginal and joint power. `Download tables (CSV)` exports the displayed
 analysis tables, including simulation tables when simulation is enabled.
-
-## Mapping R results to Shiny results
-
-The application is a presentation layer over the same package state returned
-by `run_pipeline()`.
-
-```{r shiny-result-mapping}
-shiny_result_mapping <- data.frame(
-  `Shiny result area` = c(
-    "Design summary",
-    "Boundaries",
-    "Power: marginal",
-    "Power: joint"
-  ),
-  `R state source` = c(
-    "state$design",
-    "state$design$boundary, boundary_HR, boundary_p",
-    "state$theoretical_results$marginal_power",
-    "state$theoretical_results$joint_power_matrix and joint_power"
-  ),
-  check.names = FALSE
-)
-knitr::kable(shiny_result_mapping)
-```
-
-This correspondence makes it possible to prototype a design interactively,
-then reproduce the same calculation and extract the same values in an R
-report.
 
 ## Fleischer model and observed quantities
 
@@ -199,6 +178,51 @@ results in `state$theoretical_results`.
 
 ## Module 0: input validation and derived design quantities
 
+The next chunk runs the implementation modules directly on one validated input
+list. Each returned state is retained so that the result table in the
+corresponding section reports the output of that module, rather than reading
+only the final public-pipeline object.
+
+```{r module-chain}
+module_input <- list(
+  n_T = 100,
+  n_C = 100,
+  d_PFS_vec = c(50, 100),
+  t_vec = NULL,
+  v_vec = 200 / 12,
+  median_PFS_C = log(2) / 0.25,
+  median_OS_C = log(2) / 0.10,
+  median_PFS_T = NULL,
+  median_OS_T = NULL,
+  HR_PFS = 0.8,
+  HR_OS = 0.85,
+  alpha_spending_PFS = "OF",
+  alpha_spending_OS = "Pocock",
+  alpha_spending_gamma_PFS = NA_real_,
+  alpha_spending_gamma_OS = NA_real_,
+  alpha = 0.025,
+  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
+  futility_looks = list(PFS = 1, OS = integer(0)),
+  futility_HR = 1.2,
+  hierarchy_order = c(primary = "PFS", secondary = "OS"),
+  tol = 1e-8,
+  integration_seed = 777,
+  simulation_seed = 777,
+  simulation = FALSE,
+  n_sim = 200,
+  display_digits = 4
+)
+
+module0_state <- do.call(
+  CorrSurvGSD:::validate_trial_input,
+  module_input
+)
+module1_state <- CorrSurvGSD:::calculate_calendar_cutoffs(module0_state)
+module2_state <- CorrSurvGSD:::compute_per_subject_moments(module1_state)
+module3_state <- CorrSurvGSD:::construct_joint_correlation_matrix(module2_state)
+module4_state <- CorrSurvGSD:::calculate_closed_form_results(module3_state)
+```
+
 - The total sample size is `n = n_T + n_C`. Piecewise accrual rates are
 converted to segment durations and enrollment probabilities.
 - Control-arm medians are converted to latent Fleischer hazards.
@@ -225,15 +249,15 @@ module0_results <- data.frame(
     "Treatment OS HR", "PFS efficacy looks", "OS efficacy looks"
   ),
   Value = c(
-    state$design$n,
-    round(state$design$r, 4),
-    round(state$design$R, 4),
-    round(state$design$Lambda_C, 4),
-    round(state$design$lambda_2_C, 4),
-    state$design$HR_PFS,
-    state$design$HR_OS,
-    paste(state$design$efficacy_looks$PFS, collapse = ", "),
-    paste(state$design$efficacy_looks$OS, collapse = ", ")
+    module0_state$design$n,
+    round(module0_state$design$r, 4),
+    round(module0_state$design$R, 4),
+    round(module0_state$design$Lambda_C, 4),
+    round(module0_state$design$lambda_2_C, 4),
+    module0_state$design$HR_PFS,
+    module0_state$design$HR_OS,
+    paste(module0_state$design$efficacy_looks$PFS, collapse = ", "),
+    paste(module0_state$design$efficacy_looks$OS, collapse = ", ")
   ),
   check.names = FALSE
 )
@@ -259,10 +283,9 @@ The resulting `A_vec` is saved in `state$design`.
 
 ```{r module-1-results}
 module1_results <- data.frame(
-  Look = seq_len(state$design$L),
-  Target_PFS_events = state$design$d_PFS_vec,
-  Calendar_cutoff = round(state$design$A_vec, 4),
-  Expected_OS_events = round(state$design$d_OS_vec, 4)
+  Look = seq_len(module1_state$design$L),
+  Target_PFS_events = module1_state$design$d_PFS_vec,
+  Calendar_cutoff = round(module1_state$design$A_vec, 4)
 )
 knitr::kable(module1_results)
 ```
@@ -386,18 +409,18 @@ m_{\widetilde T_1\widetilde T_2}
 module2_results <- data.frame(
   Look = seq_len(state$design$L),
   PFS_event_mean_T = round(
-    state$moments$single_look_means["T", "delta", "PFS", ], 4
+    module2_state$moments$single_look_means["T", "delta", "PFS", ], 4
   ),
   PFS_event_mean_C = round(
-    state$moments$single_look_means["C", "delta", "PFS", ], 4
+    module2_state$moments$single_look_means["C", "delta", "PFS", ], 4
   ),
   OS_event_mean_T = round(
-    state$moments$single_look_means["T", "delta", "OS", ], 4
+    module2_state$moments$single_look_means["T", "delta", "OS", ], 4
   ),
   OS_event_mean_C = round(
-    state$moments$single_look_means["C", "delta", "OS", ], 4
+    module2_state$moments$single_look_means["C", "delta", "OS", ], 4
   ),
-  Expected_OS_events = round(state$design$d_OS_vec, 4)
+  Expected_OS_events = round(module2_state$design$d_OS_vec, 4)
 )
 knitr::kable(module2_results)
 ```
@@ -463,7 +486,7 @@ second.
 
 ```{r module-3-results}
 knitr::kable(
-  round(state$theoretical_results$joint_correlation_matrix, 4)
+  round(module3_state$theoretical_results$joint_correlation_matrix, 4)
 )
 ```
 
@@ -541,22 +564,22 @@ joint_power.
 
 ```{r module-4-boundaries}
 boundary_rows <- c(
-  paste0("PFS_", seq_len(state$design$L)),
-  paste0("OS_", seq_len(state$design$L))
+  paste0("PFS_", seq_len(module4_state$design$L)),
+  paste0("OS_", seq_len(module4_state$design$L))
 )
 boundary_results <- data.frame(
-  Endpoint = rep(c("PFS", "OS"), each = state$design$L),
-  Look = rep(seq_len(state$design$L), 2),
-  Futility_Z = round(state$design$boundary[boundary_rows, "futility"], 4),
-  Efficacy_Z = round(state$design$boundary[boundary_rows, "efficacy"], 4),
+  Endpoint = rep(c("PFS", "OS"), each = module4_state$design$L),
+  Look = rep(seq_len(module4_state$design$L), 2),
+  Futility_Z = round(module4_state$design$boundary[boundary_rows, "futility"], 4),
+  Efficacy_Z = round(module4_state$design$boundary[boundary_rows, "efficacy"], 4),
   Futility_HR = round(
-    state$design$boundary_HR[boundary_rows, "futility"], 4
+    module4_state$design$boundary_HR[boundary_rows, "futility"], 4
   ),
   Efficacy_HR = round(
-    state$design$boundary_HR[boundary_rows, "efficacy"], 4
+    module4_state$design$boundary_HR[boundary_rows, "efficacy"], 4
   ),
   Efficacy_p = round(
-    state$design$boundary_p[boundary_rows, "efficacy"], 4
+    module4_state$design$boundary_p[boundary_rows, "efficacy"], 4
   )
 )
 knitr::kable(boundary_results)
@@ -564,26 +587,26 @@ knitr::kable(boundary_results)
 
 ```{r module-4-power}
 marginal_results <- data.frame(
-  Endpoint_Look = rownames(state$theoretical_results$marginal_power),
+  Endpoint_Look = rownames(module4_state$theoretical_results$marginal_power),
   Incremental = round(
-    state$theoretical_results$marginal_power[, "incremental"], 4
+    module4_state$theoretical_results$marginal_power[, "incremental"], 4
   ),
   Cumulative = round(
-    state$theoretical_results$marginal_power[, "cumulative"], 4
+    module4_state$theoretical_results$marginal_power[, "cumulative"], 4
   )
 )
 knitr::kable(marginal_results)
 
 knitr::kable(
-  round(state$theoretical_results$joint_power_matrix, 4),
+  round(module4_state$theoretical_results$joint_power_matrix, 4),
   caption = paste0(
-    "Joint power by first ", state$design$hierarchy_order[["primary"]],
+    "Joint power by first ", module4_state$design$hierarchy_order[["primary"]],
     " and secondary efficacy crossing."
   )
 )
 data.frame(
   Quantity = "Total joint power",
-  Value = round(state$theoretical_results$joint_power, 4)
+  Value = round(module4_state$theoretical_results$joint_power, 4)
 )
 ```
 
@@ -607,31 +630,18 @@ to the internal attempt limit.
 
 ## Optional simulation example
 
-```{r simulation-example, eval = FALSE}
-simulation_state <- run_pipeline(
-  n_T = 100,
-  n_C = 100,
-  d_PFS_vec = c(50, 100),
-  v_vec = 200 / 12,
-  median_PFS_C = log(2) / 0.25,
-  median_OS_C = log(2) / 0.10,
-  HR_PFS = 0.8,
-  HR_OS = 0.85,
-  alpha_spending_PFS = "OF",
-  alpha_spending_OS = "Pocock",
-  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
-  futility_looks = list(PFS = 1, OS = integer(0)),
-  hierarchy_order = c(primary = "PFS", secondary = "OS"),
-  simulation = TRUE,
-  simulation_seed = 777,
-  n_sim = 200
-)
+```{r module-5-results}
+module5_state <- module4_state
+module5_state$options$simulation <- TRUE
+module5_state$options$simulation_seed <- 777
+module5_state$options$n_sim <- 200
+module5_state <- CorrSurvGSD:::run_simulation(module5_state)
 
 simulation_comparison <- data.frame(
   Quantity = c("Theoretical joint power", "Empirical joint power"),
   Value = c(
-    simulation_state$theoretical_results$joint_power,
-    simulation_state$empirical_results$joint_power
+    module5_state$theoretical_results$joint_power,
+    module5_state$empirical_results$joint_power
   )
 )
 knitr::kable(simulation_comparison)
