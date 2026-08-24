@@ -1258,6 +1258,19 @@ ui <- fluidPage(
         background-color: #ffffff;
         box-shadow: 0 1px 4px rgba(49, 41, 43, 0.05);
       }
+      .methodology-panel {
+        overflow: hidden;
+        border: 1px solid #e4dadd;
+        border-radius: 8px;
+        background-color: #ffffff;
+      }
+      .methodology-frame {
+        display: block;
+        width: 100%;
+        height: 1100px;
+        border: 0;
+        background-color: #ffffff;
+      }
       .result-context {
         margin-bottom: 20px;
         padding: 22px 24px;
@@ -1684,8 +1697,9 @@ ui <- fluidPage(
               "CorrSurvGSD evaluates correlated group sequential designs for "
                 , "progression-free survival (PFS) and overall survival (OS) "
                 , "with a fixed testing sequence: PFS -> OS or OS -> PFS. "
-                , "The second endpoint is tested only after the first is "
-                , "rejected.",
+                , "The first endpoint in the sequence is primary and the "
+                , "second is secondary; the secondary endpoint is tested "
+                , "only after the primary endpoint is rejected.",
               class = "intro-lead"
             ),
             tags$p(
@@ -1731,6 +1745,17 @@ ui <- fluidPage(
               )
             )
           ),
+        ),
+        tabPanel(
+          "Methodology",
+          div(
+            class = "methodology-panel",
+            tags$iframe(
+              class = "methodology-frame",
+              src = "closed-form-methodology.html",
+              title = "Closed-form methodology"
+            )
+          )
         ),
         tabPanel(
           "Results",

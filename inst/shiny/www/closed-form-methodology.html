@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Closed-Form Methodology for Correlated Group Sequential Designs</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Closed-Form Methodology for Correlated
+Group Sequential Designs</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(CorrSurvGSD)</span></code></pre></div>
+<div id="scope" class="section level2">
+<h2>Scope</h2>
+<ul>
+<li><code>CorrSurvGSD</code> evaluates correlated PFS and OS group
+sequential designs under the Fleischer model.</li>
+<li>The implementation follows the developer specification in
+<code>code/Blueprint.md</code>.</li>
+<li>This vignette summarizes the user-facing statistical workflow and
+the closed-form quantities returned by the package.</li>
+<li>The pipeline returns theoretical results and can optionally append
+Monte Carlo results without changing the theoretical calculations.</li>
+</ul>
+</div>
+<div id="pipeline-example" class="section level2">
+<h2>Pipeline example</h2>
+<p>The public interface is <code>run_pipeline()</code>. It validates the
+design, derives the calendar cutoffs and moments, constructs the joint
+correlation matrix, and calculates power.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>state <span class="ot">&lt;-</span> <span class="fu">run_pipeline</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="at">n_T =</span> <span class="dv">100</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">n_C =</span> <span class="dv">100</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">d_PFS_vec =</span> <span class="fu">c</span>(<span class="dv">50</span>),</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">v_vec =</span> <span class="fu">c</span>(<span class="dv">200</span> <span class="sc">/</span> <span class="dv">12</span>),</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">median_PFS_C =</span> <span class="fu">log</span>(<span class="dv">2</span>) <span class="sc">/</span> <span class="fl">0.15</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">median_OS_C =</span> <span class="fu">log</span>(<span class="dv">2</span>) <span class="sc">/</span> <span class="fl">0.05</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="at">median_PFS_T =</span> <span class="fu">log</span>(<span class="dv">2</span>) <span class="sc">/</span> <span class="fl">0.15</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  <span class="at">median_OS_T =</span> <span class="fu">log</span>(<span class="dv">2</span>) <span class="sc">/</span> <span class="fl">0.05</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="at">alpha_spending_PFS =</span> <span class="st">&quot;OF&quot;</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  <span class="at">alpha_spending_OS =</span> <span class="st">&quot;Pocock&quot;</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  <span class="at">efficacy_looks =</span> <span class="fu">list</span>(<span class="at">PFS =</span> <span class="dv">1</span>, <span class="at">OS =</span> <span class="dv">1</span>),</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  <span class="at">futility_looks =</span> <span class="fu">list</span>(<span class="at">PFS =</span> <span class="fu">integer</span>(<span class="dv">0</span>), <span class="at">OS =</span> <span class="fu">integer</span>(<span class="dv">0</span>))</span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>)</span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>state<span class="sc">$</span>theoretical_results<span class="sc">$</span>joint_correlation_matrix</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt;       PFS_1 OS_1</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="co">#&gt; PFS_1     1    0</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co">#&gt; OS_1      0    1</span></span></code></pre></div>
+</div>
+<div id="model-inputs-and-pipeline-state" class="section level2">
+<h2>Model inputs and pipeline state</h2>
+<ul>
+<li>The design requires treatment and control sample sizes, accrual
+rates, target PFS event counts, control PFS and OS medians, and either
+treatment medians or endpoint-specific hazard ratios. The unused
+treatment input pair defaults to <code>NULL</code>.</li>
+<li><code>efficacy_looks</code> and <code>futility_looks</code> default
+to <code>NULL</code>. This performs efficacy analysis only at the final
+look and disables futility analysis for both endpoints.</li>
+<li>When configured, <code>futility_looks</code> must contain strictly
+increasing integer looks before the final look, so every futility look
+satisfies <code>look &lt; L</code>.</li>
+<li><code>hierarchy_order</code> specifies whether PFS or OS is the
+primary gatekeeping endpoint.</li>
+<li>The returned <code>trial_state</code> stores validated design
+quantities in <code>state$design</code>, numerical settings in
+<code>state$options</code>, and theoretical results in
+<code>state$theoretical_results</code>.</li>
+</ul>
+</div>
+<div id="module-0-input-validation-and-derived-design-quantities" class="section level2">
+<h2>Module 0: input validation and derived design quantities</h2>
+<ul>
+<li>The total sample size is <code>n = n_T + n_C</code>. Piecewise
+accrual rates are converted to segment durations and enrollment
+probabilities.</li>
+<li>Control-arm medians are converted to latent Fleischer hazards.</li>
+</ul>
+<p><span class="math display">\[\begin{equation*}
+\Lambda_C = \frac{\log(2)}{\operatorname{median}_{PFS,C}}, \qquad
+\lambda_{2,C} = \frac{\log(2)}{\operatorname{median}_{OS,C}}, \qquad
+\lambda_{1,C} = \Lambda_C - \lambda_{2,C}.
+\end{equation*}\]</span></p>
+<ul>
+<li>Treatment hazards are derived either from treatment medians or from
+<code>HR_PFS</code> and <code>HR_OS</code>. The validator rejects mixed
+or incomplete treatment effect specifications.</li>
+<li>Alpha spending supports <code>&quot;OF&quot;</code>, <code>&quot;Pocock&quot;</code>,
+and <code>&quot;HSD&quot;</code>. HSD requires a finite endpoint-specific gamma
+parameter.</li>
+<li>Integration and simulation seeds are stored separately so numerical
+integration and Monte Carlo results can be reproduced
+independently.</li>
+</ul>
+</div>
+<div id="module-1-calendar-cutoffs" class="section level2">
+<h2>Module 1: calendar cutoffs</h2>
+<ul>
+<li>For each PFS event look, the pipeline solves for the expected
+calendar cutoff <code>A_l</code>.</li>
+</ul>
+<p><span class="math display">\[\begin{equation*}
+n_T m_{\delta_l^{PFS}}^{(T)}(A_l) +
+n_C m_{\delta_l^{PFS}}^{(C)}(A_l) = d_l^{PFS}.
+\end{equation*}\]</span></p>
+<ul>
+<li>The monotone event-count equation is solved numerically using
+<code>tol</code>. The resulting <code>A_vec</code> is saved in
+<code>state$design</code>.</li>
+</ul>
+</div>
+<div id="module-2-per-subject-moments" class="section level2">
+<h2>Module 2: per-subject moments</h2>
+<ul>
+<li>For a subject enrolled at time <code>U</code>, define
+<code>B = min(A, R)</code> and integrate over the piecewise-uniform
+enrollment distribution.</li>
+<li>For endpoint hazard <code>mu</code>, the single-look event and
+truncated-time means are obtained from the closed-form integrals
+<code>I_1</code>, <code>I_4</code>, and <code>I_5</code>.</li>
+</ul>
+<ul>
+<li>PFS/OS cross-look products use the ordering of <code>A_1</code> and
+<code>A_2</code> and the Fleischer latent hazards. The resulting
+single-look and cross-look moments are stored in
+<code>state$moments</code>.</li>
+<li>Expected OS event counts are derived from the single-look means and
+saved as <code>state$design$d_OS_vec</code>.</li>
+</ul>
+</div>
+<div id="module-3-joint-correlation-matrix" class="section level2">
+<h2>Module 3: joint correlation matrix</h2>
+<ul>
+<li>The log hazard-ratio variances and PFS/OS cross-endpoint covariances
+are calculated with the Delta method.</li>
+</ul>
+<p><span class="math display">\[\begin{equation*}
+\operatorname{Var}(\hat{\theta}_l^k) =
+\sum_{g \in \{T,C\}} \frac{1}{n_g}
+\nabla g^\top \Sigma_{k,l}^{(g)} \nabla g.
+\end{equation*}\]</span></p>
+<ul>
+<li>Within an endpoint, canonical group-sequential information gives
+<code>rho(l_1, l_2) = sqrt(d_min / d_max)</code>.</li>
+<li>Across endpoints, the covariance is standardized by the
+corresponding marginal variances. The combined <code>(2L) x (2L)</code>
+matrix is stored with PFS looks first and OS looks second.</li>
+</ul>
+</div>
+<div id="module-4-boundaries-and-theoretical-power" class="section level2">
+<h2>Module 4: boundaries and theoretical power</h2>
+<ul>
+<li>The mean drift at look <code>l</code> for endpoint <code>k</code>
+is</li>
+</ul>
+<p><span class="math display">\[\begin{equation*}
+\theta_l^k = -\log(HR_k)\sqrt{d_l^k\frac{r}{(1+r)^2}},
+\qquad r = \frac{n_T}{n_C}.
+\end{equation*}\]</span></p>
+<ul>
+<li>Efficacy boundaries are calculated from the selected alpha-spending
+family. Configured futility boundaries are calculated from the
+corresponding futility hazard ratios.</li>
+<li>The primary Z-scale boundary is retained in
+<code>state$design$boundary</code>. Finite boundaries are also converted
+to HR and one-sided p scales.</li>
+</ul>
+<p><span class="math display">\[\begin{equation*}
+s_l = \sqrt{d_l\frac{r}{(1+r)^2}}, \qquad
+HR_l = \exp\left(-\frac{Z_l}{s_l}\right), \qquad
+p_l = 1 - \Phi(Z_l).
+\end{equation*}\]</span></p>
+<ul>
+<li><code>state$design$boundary_HR</code> and
+<code>state$design$boundary_p</code> use <code>NA_real_</code> for
+unconfigured boundaries, while Z-scale <code>-Inf</code> and
+<code>Inf</code> remain available for power and simulation logic.</li>
+<li><code>marginal_power</code> is calculated from first
+efficacy-crossing regions using multivariate normal integration and
+<code>integration_seed</code>.</li>
+<li>Joint power follows <code>hierarchy_order</code>: the primary
+endpoint must cross its efficacy boundary before the secondary endpoint
+is evaluated. The mutually exclusive crossing probabilities are stored
+in <code>joint_power_matrix</code> and sum to
+<code>joint_power</code>.</li>
+</ul>
+</div>
+<div id="module-5-optional-simulation" class="section level2">
+<h2>Module 5: optional simulation</h2>
+<ul>
+<li>When <code>simulation = TRUE</code>, the package generates
+trial-level Fleischer event times, enrollment times, event counts,
+person-time, and Z statistics.</li>
+<li>Simulation derives each calendar cutoff from the simulated PFS event
+times and calculates OS statistics from the simulated OS event times. It
+does not modify the closed-form results.</li>
+<li>Invalid replicates with zero events or zero person-time are
+regenerated up to the internal attempt limit.</li>
+<li>Empirical means, correlations, marginal power, and joint power are
+stored in <code>state$empirical_results</code>. The simulation seed
+remains in <code>state$options$simulation_seed</code>.</li>
+</ul>
+</div>
+<div id="multi-look-gatekeeping-example" class="section level2">
+<h2>Multi-look gatekeeping example</h2>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>multi_state <span class="ot">&lt;-</span> <span class="fu">run_pipeline</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="at">n_T =</span> <span class="dv">100</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">n_C =</span> <span class="dv">100</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">d_PFS_vec =</span> <span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">100</span>),</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">v_vec =</span> <span class="dv">200</span> <span class="sc">/</span> <span class="dv">12</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">median_PFS_C =</span> <span class="fu">log</span>(<span class="dv">2</span>) <span class="sc">/</span> <span class="fl">0.15</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">median_OS_C =</span> <span class="fu">log</span>(<span class="dv">2</span>) <span class="sc">/</span> <span class="fl">0.05</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">HR_PFS =</span> <span class="fl">0.8</span>,</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">HR_OS =</span> <span class="fl">0.8</span>,</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">alpha_spending_PFS =</span> <span class="st">&quot;OF&quot;</span>,</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">alpha_spending_OS =</span> <span class="st">&quot;Pocock&quot;</span>,</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  <span class="at">efficacy_looks =</span> <span class="fu">list</span>(<span class="at">PFS =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">OS =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>)),</span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>  <span class="at">futility_looks =</span> <span class="fu">list</span>(<span class="at">PFS =</span> <span class="fu">integer</span>(<span class="dv">0</span>), <span class="at">OS =</span> <span class="fu">integer</span>(<span class="dv">0</span>)),</span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>  <span class="at">hierarchy_order =</span> <span class="fu">c</span>(<span class="at">primary =</span> <span class="st">&quot;PFS&quot;</span>, <span class="at">secondary =</span> <span class="st">&quot;OS&quot;</span>)</span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>)</span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>multi_state<span class="sc">$</span>theoretical_results<span class="sc">$</span>joint_power</span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; [1] 0.04293195</span></span></code></pre></div>
+</div>
+<div id="optional-simulation-example" class="section level2">
+<h2>Optional simulation example</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>simulation_state <span class="ot">&lt;-</span> <span class="fu">run_pipeline</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">n_T =</span> <span class="dv">100</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">n_C =</span> <span class="dv">100</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">d_PFS_vec =</span> <span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">100</span>),</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">v_vec =</span> <span class="dv">200</span> <span class="sc">/</span> <span class="dv">12</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">median_PFS_C =</span> <span class="fu">log</span>(<span class="dv">2</span>) <span class="sc">/</span> <span class="fl">0.15</span>,</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="at">median_OS_C =</span> <span class="fu">log</span>(<span class="dv">2</span>) <span class="sc">/</span> <span class="fl">0.05</span>,</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  <span class="at">HR_PFS =</span> <span class="fl">0.8</span>,</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">HR_OS =</span> <span class="fl">0.8</span>,</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="at">alpha_spending_PFS =</span> <span class="st">&quot;OF&quot;</span>,</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>  <span class="at">alpha_spending_OS =</span> <span class="st">&quot;Pocock&quot;</span>,</span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>  <span class="at">efficacy_looks =</span> <span class="fu">list</span>(<span class="at">PFS =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="at">OS =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>)),</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>  <span class="at">futility_looks =</span> <span class="fu">list</span>(<span class="at">PFS =</span> <span class="fu">integer</span>(<span class="dv">0</span>), <span class="at">OS =</span> <span class="fu">integer</span>(<span class="dv">0</span>)),</span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>  <span class="at">simulation =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>  <span class="at">simulation_seed =</span> <span class="dv">777</span>,</span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>  <span class="at">n_sim =</span> <span class="dv">500</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>)</span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a>simulation_state<span class="sc">$</span>empirical_results<span class="sc">$</span>joint_power</span></code></pre></div>
+</div>
+<div id="reproducibility" class="section level2">
+<h2>Reproducibility</h2>
+<ul>
+<li>Set <code>integration_seed</code> to control numerical
+multivariate-normal integration.</li>
+<li>Set <code>simulation_seed</code> and <code>simulation = TRUE</code>
+to obtain reproducible Monte Carlo summaries.</li>
+<li>The returned <code>trial_state</code> preserves the validated
+design, options, and theoretical results for downstream reporting.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
