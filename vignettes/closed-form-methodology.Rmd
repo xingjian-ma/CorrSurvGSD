@@ -154,6 +154,32 @@ This correspondence makes it possible to prototype a design interactively,
 then reproduce the same calculation and extract the same values in an R
 report.
 
+## Fleischer model and observed quantities
+
+For treatment or control arm $g$, let the latent progression and death times
+be independent exponential variables:
+
+\begin{equation*}
+E_{1g} \sim \operatorname{Exp}(\lambda_{1,g}), \qquad
+E_{2g} \sim \operatorname{Exp}(\lambda_{2,g}), \qquad
+E_{1g} \perp E_{2g}.
+\end{equation*}
+
+PFS is the first latent event and OS is the death time. Therefore the PFS
+hazard is $\Lambda_g = \lambda_{1,g} + \lambda_{2,g}$.
+
+\begin{equation*}
+T_g^{PFS} = \min(E_{1g}, E_{2g}), \qquad
+T_g^{OS} = E_{2g}, \qquad
+\Lambda_g = \lambda_{1,g} + \lambda_{2,g}.
+\end{equation*}
+
+For total sample size $n=n_T+n_C$, the enrollment time $U$ has density
+$p_i=v_i/n$ on accrual segment $(t_{i-1},t_i]$. At calendar cutoff $A$, set
+$a=(A-U)_+$, $\delta^k(A)=\mathbf{1}(T^k\le a)$, and
+$\widetilde T^k(A)=\min(T^k,a)$. These definitions include administrative
+censoring and make subjects enrolled after $A$ contribute zero follow-up.
+
 ## Model inputs and pipeline state
 
 - The design requires treatment and control sample sizes, accrual rates, target
@@ -191,6 +217,33 @@ finite endpoint-specific gamma parameter.
 - Integration and simulation seeds are stored separately so numerical
 integration and Monte Carlo results can be reproduced independently.
 
+```{r module-0-results}
+module0_results <- data.frame(
+  Quantity = c(
+    "Total sample size", "Allocation ratio", "Total accrual duration",
+    "Control PFS hazard", "Control OS hazard", "Treatment PFS HR",
+    "Treatment OS HR", "PFS efficacy looks", "OS efficacy looks"
+  ),
+  Value = c(
+    state$design$n,
+    round(state$design$r, 4),
+    round(state$design$R, 4),
+    round(state$design$Lambda_C, 4),
+    round(state$design$lambda_2_C, 4),
+    state$design$HR_PFS,
+    state$design$HR_OS,
+    paste(state$design$efficacy_looks$PFS, collapse = ", "),
+    paste(state$design$efficacy_looks$OS, collapse = ", ")
+  ),
+  check.names = FALSE
+)
+knitr::kable(module0_results)
+```
+
+This table reports validated and derived design quantities. It is not a second
+estimation step: invalid or incomplete treatment-effect specifications are
+rejected before later modules run.
+
 ## Module 1: calendar cutoffs
 
 - For each PFS event look, the pipeline solves for the expected calendar
@@ -203,6 +256,20 @@ n_C m_{\delta_l^{PFS}}^{(C)}(A_l) = d_l^{PFS}.
 
 - The monotone event-count equation is solved numerically using `tol`.
 The resulting `A_vec` is saved in `state$design`.
+
+```{r module-1-results}
+module1_results <- data.frame(
+  Look = seq_len(state$design$L),
+  Target_PFS_events = state$design$d_PFS_vec,
+  Calendar_cutoff = round(state$design$A_vec, 4),
+  Expected_OS_events = round(state$design$d_OS_vec, 4)
+)
+knitr::kable(module1_results)
+```
+
+The PFS target is fixed by the design, whereas the cutoff and expected OS
+events are derived quantities. OS uses the same calendar cutoffs even when its
+efficacy schedule differs from the PFS schedule.
 
 ## Module 2: per-subject moments
 
@@ -227,6 +294,117 @@ are stored in `state$moments`.
 - Expected OS event counts are derived from the single-look means and saved
 as `state$design$d_OS_vec`.
 
+For a segment $(\tau_1,\tau_2]$, the required exponential integrals are
+
+\begin{equation*}
+\begin{aligned}
+i_1(\tau_1,\tau_2) &= \tau_2-\tau_1, \\
+i_4(\tau_1,\tau_2,A,\mu) &=
+\frac{e^{-\mu(A-\tau_2)}-e^{-\mu(A-\tau_1)}}{\mu}, \\
+i_5(\tau_1,\tau_2,A,\mu) &=
+\frac{e^{-\mu(A-\tau_2)}(A-\tau_2+1/\mu)
+-e^{-\mu(A-\tau_1)}(A-\tau_1+1/\mu)}{\mu}.
+\end{aligned}
+\end{equation*}
+
+Writing $B=\min(A,R)$ and letting $b$ be its segment index, the implementation
+forms the weighted sum
+
+\begin{equation*}
+I_j(A,B,b,\mu)=\sum_{i=1}^{b-1}p_i i_j(t_{i-1},t_i,A,\mu)
++p_b i_j(t_{b-1},B,A,\mu).
+\end{equation*}
+
+For endpoint hazard $\mu$, the four single-look product means are
+
+\begin{equation*}
+\begin{aligned}
+m_\delta &= I_1-I_4, &
+m_{\widetilde T} &= \frac{I_1-I_4}{\mu}, \\
+m_{\widetilde T^2} &=
+\frac{2}{\mu^2}(I_1-I_4-\mu I_5), &
+m_{\delta\widetilde T} &=
+\frac{I_1-I_4}{\mu}-I_5.
+\end{aligned}
+\end{equation*}
+
+The corresponding covariance is obtained by subtracting the product of the
+two single-look means. For PFS look 1 and OS look 2, let
+$a_j=A_j-U$, $\lambda_1=\lambda_{1,g}$, $\lambda_2=\lambda_{2,g}$,
+$\Lambda=\lambda_1+\lambda_2$, and
+$A_\star=(\lambda_1A_1+\lambda_2A_2)/\Lambda$. In the formulas below,
+$I_j(A,\mu)$ abbreviates $I_j(A,B,b,\mu)$ with
+$B=\min(A_1,A_2,R)$.
+
+When $A_1\le A_2$, the four unconditional cross-look product means are
+
+\begin{equation*}
+\begin{aligned}
+m_{\delta_1\delta_2}
+&=I_1(A_1)-I_4(A_2,\lambda_2)-I_4(A_1,\Lambda)
++I_4(A_\star,\Lambda), \\
+m_{\delta_1\widetilde T_2}
+&=\frac{I_1(A_1)-I_4(A_2,\lambda_2)}{\lambda_2}
+-I_5(A_1,\Lambda)
+-\frac{I_4(A_1,\Lambda)-I_4(A_\star,\Lambda)}{\lambda_2}, \\
+m_{\widetilde T_1\delta_2}
+&=\frac{I_1(A_1)-I_4(A_1,\Lambda)}{\Lambda}
+-\frac{I_4(A_2,\lambda_2)-I_4(A_\star,\Lambda)}{\lambda_1}, \\
+m_{\widetilde T_1\widetilde T_2}
+&=\frac{I_1(A_1)}{\Lambda^2}
+-\frac{I_5(A_1,\Lambda)}{\Lambda}
+-\frac{I_4(A_1,\Lambda)}{\Lambda^2} \\
+&\quad+\frac{I_1(A_1)-I_4(A_1,\Lambda)}{\lambda_2\Lambda}
+-\frac{I_4(A_2,\lambda_2)}{\lambda_1\lambda_2}
++\frac{I_4(A_\star,\Lambda)}{\lambda_1\lambda_2}.
+\end{aligned}
+\end{equation*}
+
+When $A_1>A_2$, the integration domain is truncated at $A_2$ and the
+corresponding four means are
+
+\begin{equation*}
+\begin{aligned}
+m_{\delta_1\delta_2}
+&=I_1(A_2)-I_4(A_2,\lambda_2), \\
+m_{\delta_1\widetilde T_2}
+&=\frac{I_1(A_2)-I_4(A_2,\lambda_2)}{\lambda_2}
+-e^{-\Lambda(A_1-A_2)}I_5(A_2,\Lambda), \\
+m_{\widetilde T_1\delta_2}
+&=\frac{I_1(A_2)-I_4(A_2,\Lambda)}{\Lambda}
+-\frac{I_4(A_2,\lambda_2)-I_4(A_2,\Lambda)}{\lambda_1}, \\
+m_{\widetilde T_1\widetilde T_2}
+&=\frac{I_1(A_2)-I_4(A_2,\Lambda)}{\Lambda^2}
+-\frac{e^{-\Lambda(A_1-A_2)}I_5(A_2,\Lambda)}{\Lambda} \\
+&\quad+\frac{I_1(A_2)-I_4(A_2,\Lambda)}{\lambda_2\Lambda}
+-\frac{I_4(A_2,\lambda_2)-I_4(A_2,\Lambda)}
+{\lambda_1\lambda_2}.
+\end{aligned}
+\end{equation*}
+
+```{r module-2-results}
+module2_results <- data.frame(
+  Look = seq_len(state$design$L),
+  PFS_event_mean_T = round(
+    state$moments$single_look_means["T", "delta", "PFS", ], 4
+  ),
+  PFS_event_mean_C = round(
+    state$moments$single_look_means["C", "delta", "PFS", ], 4
+  ),
+  OS_event_mean_T = round(
+    state$moments$single_look_means["T", "delta", "OS", ], 4
+  ),
+  OS_event_mean_C = round(
+    state$moments$single_look_means["C", "delta", "OS", ], 4
+  ),
+  Expected_OS_events = round(state$design$d_OS_vec, 4)
+)
+knitr::kable(module2_results)
+```
+
+The moment arrays retain treatment and control contributions separately. The
+expected OS-event column combines those means using the arm sample sizes.
+
 ## Module 3: joint correlation matrix
 
 - The log hazard-ratio variances and PFS/OS cross-endpoint covariances are
@@ -243,6 +421,55 @@ calculated with the Delta method.
 - Across endpoints, the covariance is standardized by the corresponding
 marginal variances. The combined `(2L) x (2L)` matrix is stored with PFS
 looks first and OS looks second.
+
+For endpoint $k$ and look $\ell$, define
+$X_{g,k,\ell}=(\delta^k_\ell,\widetilde T^k_\ell)^\top$ and let
+$\Sigma_{g,k,\ell}$ be its per-subject covariance matrix. The log-rank
+log-hazard-ratio map is $h(x_1,x_2)=\log(x_1)-\log(x_2)$, with gradient
+
+\begin{equation*}
+\nabla h_{g,k,\ell} =
+\left(\frac{1}{m_{\delta^k_\ell}^{(g)}},
+-\frac{1}{m_{\widetilde T^k_\ell}^{(g)}}\right)^\top.
+\end{equation*}
+
+The Delta method gives
+
+\begin{equation*}
+\operatorname{Var}(\widehat{\theta}^k_\ell)
+=\sum_{g\in\{T,C\}}\frac{1}{n_g}
+\nabla h_{g,k,\ell}^{\top}
+\Sigma_{g,k,\ell}
+\nabla h_{g,k,\ell}.
+\end{equation*}
+
+For PFS look $\ell_1$ and OS look $\ell_2$, the cross-endpoint covariance uses
+the corresponding $2\times2$ cross-look covariance block:
+
+\begin{equation*}
+\operatorname{Cov}(\widehat{\theta}^{PFS}_{\ell_1},
+\widehat{\theta}^{OS}_{\ell_2})
+=\sum_{g\in\{T,C\}}\frac{1}{n_g}
+\nabla h_{g,PFS,\ell_1}^{\top}
+\Sigma_{g,PFS,OS,\ell_1,\ell_2}
+\nabla h_{g,OS,\ell_2}.
+\end{equation*}
+
+Within an endpoint, the canonical group-sequential correlation is
+$\sqrt{d_{\min(\ell_1,\ell_2)}^k/d_{\max(\ell_1,\ell_2)}^k}$. Across endpoints,
+the covariance is standardized by the two marginal standard deviations. The
+result is a $(2L)\times(2L)$ matrix ordered as PFS looks first and OS looks
+second.
+
+```{r module-3-results}
+knitr::kable(
+  round(state$theoretical_results$joint_correlation_matrix, 4)
+)
+```
+
+The diagonal entries are one. Off-diagonal entries encode both repeated-look
+dependence within each endpoint and the PFS/OS dependence induced by the
+shared Fleischer death process.
 
 ## Module 4: boundaries and theoretical power
 
@@ -275,6 +502,96 @@ efficacy boundary before the secondary endpoint is evaluated. The mutually
 exclusive crossing probabilities are stored in `joint_power_matrix` and sum
 to `joint_power`.
 
+For endpoint $k$, the mean Z-score drift at look $\ell$ is
+
+\begin{equation*}
+\theta_\ell^k=-\log(HR_k)
+\sqrt{d_\ell^k\frac{r}{(1+r)^2}},
+\qquad r=\frac{n_T}{n_C}.
+\end{equation*}
+
+The selected alpha-spending family supplies finite efficacy boundaries at the
+configured efficacy looks. Futility boundaries are derived from the configured
+futility hazard ratios. With
+$s_\ell=\sqrt{d_\ell r/(1+r)^2}$, a finite Z boundary converts as
+
+\begin{equation*}
+HR_\ell=\exp\left(-\frac{Z_\ell}{s_\ell}\right),
+\qquad p_\ell=1-\Phi(Z_\ell).
+\end{equation*}
+
+Unconfigured futility and efficacy entries remain $-\infty$ and $+\infty$ on
+the Z scale and are represented by NA_real_ on the HR and p scales.
+
+For candidate efficacy look $\ell$, the marginal incremental power integrates
+the first-crossing region
+
+\begin{equation*}
+\mathbb{P}\left(
+c_j\le Z_j\le a_j,\ j<\ell,\quad Z_\ell\ge a_\ell
+\right),
+\end{equation*}
+
+where $c_j$ are futility bounds and $a_j$ are earlier efficacy bounds. The
+cumulative marginal power is the sum of incremental probabilities across
+looks. For gatekeeping, the primary endpoint must cross first; the secondary
+endpoint is then restricted to crossings at the same or a later look. These
+mutually exclusive probabilities populate joint_power_matrix and sum to
+joint_power.
+
+```{r module-4-boundaries}
+boundary_rows <- c(
+  paste0("PFS_", seq_len(state$design$L)),
+  paste0("OS_", seq_len(state$design$L))
+)
+boundary_results <- data.frame(
+  Endpoint = rep(c("PFS", "OS"), each = state$design$L),
+  Look = rep(seq_len(state$design$L), 2),
+  Futility_Z = round(state$design$boundary[boundary_rows, "futility"], 4),
+  Efficacy_Z = round(state$design$boundary[boundary_rows, "efficacy"], 4),
+  Futility_HR = round(
+    state$design$boundary_HR[boundary_rows, "futility"], 4
+  ),
+  Efficacy_HR = round(
+    state$design$boundary_HR[boundary_rows, "efficacy"], 4
+  ),
+  Efficacy_p = round(
+    state$design$boundary_p[boundary_rows, "efficacy"], 4
+  )
+)
+knitr::kable(boundary_results)
+```
+
+```{r module-4-power}
+marginal_results <- data.frame(
+  Endpoint_Look = rownames(state$theoretical_results$marginal_power),
+  Incremental = round(
+    state$theoretical_results$marginal_power[, "incremental"], 4
+  ),
+  Cumulative = round(
+    state$theoretical_results$marginal_power[, "cumulative"], 4
+  )
+)
+knitr::kable(marginal_results)
+
+knitr::kable(
+  round(state$theoretical_results$joint_power_matrix, 4),
+  caption = paste0(
+    "Joint power by first ", state$design$hierarchy_order[["primary"]],
+    " and secondary efficacy crossing."
+  )
+)
+data.frame(
+  Quantity = "Total joint power",
+  Value = round(state$theoretical_results$joint_power, 4)
+)
+```
+
+The boundary table separates unavailable boundaries from finite decision
+thresholds. Incremental power identifies the look at which efficacy is first
+crossed; cumulative power adds those mutually exclusive events. Each joint
+power cell identifies one primary-to-secondary crossing pair.
+
 ## Module 5: optional simulation
 
 - When `simulation = TRUE`, the package generates trial-level Fleischer event
@@ -288,28 +605,6 @@ to the internal attempt limit.
 `state$empirical_results`. The simulation seed remains in
 `state$options$simulation_seed`.
 
-## Multi-look gatekeeping example
-
-```{r multi-look-example}
-multi_state <- run_pipeline(
-  n_T = 100,
-  n_C = 100,
-  d_PFS_vec = c(50, 100),
-  v_vec = 200 / 12,
-  median_PFS_C = log(2) / 0.15,
-  median_OS_C = log(2) / 0.05,
-  HR_PFS = 0.8,
-  HR_OS = 0.8,
-  alpha_spending_PFS = "OF",
-  alpha_spending_OS = "Pocock",
-  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
-  futility_looks = list(PFS = integer(0), OS = integer(0)),
-  hierarchy_order = c(primary = "PFS", secondary = "OS")
-)
-
-multi_state$theoretical_results$joint_power
-```
-
 ## Optional simulation example
 
 ```{r simulation-example, eval = FALSE}
@@ -318,20 +613,28 @@ simulation_state <- run_pipeline(
   n_C = 100,
   d_PFS_vec = c(50, 100),
   v_vec = 200 / 12,
-  median_PFS_C = log(2) / 0.15,
-  median_OS_C = log(2) / 0.05,
+  median_PFS_C = log(2) / 0.25,
+  median_OS_C = log(2) / 0.10,
   HR_PFS = 0.8,
-  HR_OS = 0.8,
+  HR_OS = 0.85,
   alpha_spending_PFS = "OF",
   alpha_spending_OS = "Pocock",
   efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
-  futility_looks = list(PFS = integer(0), OS = integer(0)),
+  futility_looks = list(PFS = 1, OS = integer(0)),
+  hierarchy_order = c(primary = "PFS", secondary = "OS"),
   simulation = TRUE,
   simulation_seed = 777,
-  n_sim = 500
+  n_sim = 200
 )
 
-simulation_state$empirical_results$joint_power
+simulation_comparison <- data.frame(
+  Quantity = c("Theoretical joint power", "Empirical joint power"),
+  Value = c(
+    simulation_state$theoretical_results$joint_power,
+    simulation_state$empirical_results$joint_power
+  )
+)
+knitr::kable(simulation_comparison)
 ```
 
 ## Reproducibility
