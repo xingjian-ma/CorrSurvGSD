@@ -21,12 +21,13 @@ library(CorrSurvGSD)
 ## Scope
 
 - `CorrSurvGSD` evaluates correlated PFS and OS group sequential designs under
-the Fleischer model.
-- The implementation follows the developer specification in `code/Blueprint.md`.
-- This vignette summarizes the user-facing statistical workflow and the
-closed-form quantities returned by the package.
+  the Fleischer model.
+- The first part of this vignette is an interface walkthrough for the R
+  pipeline and the bundled Shiny application.
+- The later sections document the statistical model, closed-form calculations,
+  boundaries, power, and optional simulation in implementation order.
 - The pipeline returns theoretical results and can optionally append Monte
-Carlo results without changing the theoretical calculations.
+  Carlo results without changing the theoretical calculations.
 
 ## Pipeline example
 
@@ -38,20 +39,120 @@ calculates power.
 state <- run_pipeline(
   n_T = 100,
   n_C = 100,
-  d_PFS_vec = c(50),
+  d_PFS_vec = c(50, 100),
   v_vec = c(200 / 12),
-  median_PFS_C = log(2) / 0.15,
-  median_OS_C = log(2) / 0.05,
-  median_PFS_T = log(2) / 0.15,
-  median_OS_T = log(2) / 0.05,
+  median_PFS_C = log(2) / 0.25,
+  median_OS_C = log(2) / 0.10,
+  HR_PFS = 0.8,
+  HR_OS = 0.85,
   alpha_spending_PFS = "OF",
   alpha_spending_OS = "Pocock",
-  efficacy_looks = list(PFS = 1, OS = 1),
-  futility_looks = list(PFS = integer(0), OS = integer(0))
+  efficacy_looks = list(PFS = c(1, 2), OS = c(1, 2)),
+  futility_looks = list(PFS = 1, OS = integer(0)),
+  hierarchy_order = c(primary = "PFS", secondary = "OS"),
+  integration_seed = 777
 )
 
-state$theoretical_results$joint_correlation_matrix
+analysis_summary <- data.frame(
+  Quantity = c(
+    "Treatment / control sample size",
+    "Target PFS events by look",
+    "Calendar cutoffs by look",
+    "Expected OS events by look",
+    "Gatekeeping order",
+    "Theoretical joint power"
+  ),
+  Value = c(
+    paste(state$design$n_T, "/", state$design$n_C),
+    paste(state$design$d_PFS_vec, collapse = ", "),
+    paste(round(state$design$A_vec, 3), collapse = ", "),
+    paste(round(state$design$d_OS_vec, 3), collapse = ", "),
+    paste(state$design$hierarchy_order, collapse = " -> "),
+    format(state$theoretical_results$joint_power, digits = 4)
+  ),
+  check.names = FALSE
+)
+knitr::kable(analysis_summary)
 ```
+
+The call returns a `trial_state` object. The compact table above is an
+interface-level summary: the cutoff and expected OS-event values are derived
+by the pipeline, while the joint-power value is the final theoretical
+gatekeeping probability.
+
+## Inspect the returned state
+
+The state is organized so that downstream reports can select only the
+quantities they need. The validated design and numerical settings are stored
+separately from theoretical and optional empirical results.
+
+```{r state-contents}
+state_sections <- data.frame(
+  Section = c("Validated design", "Numerical and simulation options",
+              "Theoretical results", "Empirical results"),
+  Location = c("state$design", "state$options",
+               "state$theoretical_results",
+               if (is.null(state$empirical_results)) {
+                 "Not created when simulation = FALSE"
+               } else {
+                 "state$empirical_results"
+               }),
+  check.names = FALSE
+)
+knitr::kable(state_sections)
+names(state$theoretical_results)
+```
+
+The theoretical objects are always present after a successful pipeline call.
+`empirical_results` is appended only when `simulation = TRUE`; it does not
+replace or modify the theoretical results.
+
+## Run the Shiny application
+
+After installing the package with the optional `shiny` dependency available,
+launch the bundled application with `run_app()`. This chunk is intentionally
+unevaluated because `shiny::runApp()` starts a blocking interactive session.
+
+```{r launch-shiny, eval = FALSE}
+CorrSurvGSD::run_app()
+```
+
+In the application, enter the same sample sizes, accrual schedule, control
+medians, treatment HRs, alpha-spending choices, look schedules, hierarchy, and
+seed values used in the R example. Select `Run analysis` to validate the input
+and calculate the pipeline. The Results page then provides the `Design
+summary`, `Boundaries`, and `Power` tabs. Boundary values can be viewed on Z,
+hazard-ratio, or one-sided p-value scales, and the Power tab switches between
+marginal and joint power. `Download tables (CSV)` exports the displayed
+analysis tables, including simulation tables when simulation is enabled.
+
+## Mapping R results to Shiny results
+
+The application is a presentation layer over the same package state returned
+by `run_pipeline()`.
+
+```{r shiny-result-mapping}
+shiny_result_mapping <- data.frame(
+  `Shiny result area` = c(
+    "Design summary",
+    "Boundaries",
+    "Power: marginal",
+    "Power: joint"
+  ),
+  `R state source` = c(
+    "state$design",
+    "state$design$boundary, boundary_HR, boundary_p",
+    "state$theoretical_results$marginal_power",
+    "state$theoretical_results$joint_power_matrix and joint_power"
+  ),
+  check.names = FALSE
+)
+knitr::kable(shiny_result_mapping)
+```
+
+This correspondence makes it possible to prototype a design interactively,
+then reproduce the same calculation and extract the same values in an R
+report.
 
 ## Model inputs and pipeline state
 
