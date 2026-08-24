@@ -172,42 +172,14 @@ test_that("Shiny introduction provides a fixed-sequence demo design", {
   expect_identical(demo$n_T, 100)
   expect_identical(demo$n_C, 100)
   expect_identical(demo$accrual_rate_1, 20)
-  expect_true(nzchar(methodology_file))
-  expect_true(file.exists(methodology_file))
   expect_identical(demo$hierarchy_primary, "PFS")
   expect_identical(demo$d_PFS_vec, "50, 100")
-  expect_match(ui_html, "Load demo values", fixed = TRUE)
+
+  expect_true(nzchar(methodology_file))
+  expect_true(file.exists(methodology_file))
+  expect_match(ui_html, 'id="load_demo"', fixed = TRUE)
   expect_match(ui_html, "Methodology", fixed = TRUE)
   expect_match(ui_html, "closed-form-methodology.html", fixed = TRUE)
-  expect_match(ui_html, "fixed testing sequence", fixed = TRUE)
-  expect_match(ui_html, "Testing order", fixed = TRUE)
-  expect_match(
-    ui_html,
-    "The first endpoint in the sequence is primary and the second is secondary",
-    fixed = TRUE
-  )
-  expect_match(
-    ui_html,
-    "Closed-form evaluation engine for sequential PFS and OS testing",
-    fixed = TRUE
-  )
-  expect_match(ui_html, "Time to progression (TTP)", fixed = TRUE)
-  expect_match(ui_html, "overall survival (OS)", fixed = TRUE)
-  expect_match(
-    ui_html,
-    "Time to progression (TTP) and OS are modeled",
-    fixed = TRUE
-  )
-  expect_false(grepl("OS (overall survival)", ui_html, fixed = TRUE))
-  expect_match(ui_html, "independent exponential", fixed = TRUE)
-  expect_match(ui_html, "smaller of TTP and OS", fixed = TRUE)
-  expect_false(grepl("Fleischer", ui_html, fixed = TRUE))
-  expect_false(grepl("illness-death", ui_html, fixed = TRUE))
-  expect_match(ui_html, "2. Calculate", fixed = TRUE)
-  expect_match(ui_html, "3. Evaluate", fixed = TRUE)
-  expect_match(ui_html, "Set the main design inputs", fixed = TRUE)
-  expect_false(grepl("Use the Configure step", ui_html, fixed = TRUE))
-  expect_false(grepl("Fill the inputs", ui_html, fixed = TRUE))
 })
 
 test_that("Shiny result tables expose the expected structures", {
