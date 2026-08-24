@@ -178,12 +178,10 @@ results in `state$theoretical_results`.
 
 ## Module 0: input validation and derived design quantities
 
-The next chunk runs the implementation modules directly on one validated input
-list. Each returned state is retained so that the result table in the
-corresponding section reports the output of that module, rather than reading
-only the final public-pipeline object.
+The Module 0 chunk constructs the validated input and runs the actual input
+validation function. Later module sections consume the state returned here.
 
-```{r module-chain}
+```{r module-0}
 module_input <- list(
   n_T = 100,
   n_C = 100,
@@ -217,10 +215,6 @@ module0_state <- do.call(
   CorrSurvGSD:::validate_trial_input,
   module_input
 )
-module1_state <- CorrSurvGSD:::calculate_calendar_cutoffs(module0_state)
-module2_state <- CorrSurvGSD:::compute_per_subject_moments(module1_state)
-module3_state <- CorrSurvGSD:::construct_joint_correlation_matrix(module2_state)
-module4_state <- CorrSurvGSD:::calculate_closed_form_results(module3_state)
 ```
 
 - The total sample size is `n = n_T + n_C`. Piecewise accrual rates are
@@ -280,6 +274,10 @@ n_C m_{\delta_l^{PFS}}^{(C)}(A_l) = d_l^{PFS}.
 
 - The monotone event-count equation is solved numerically using `tol`.
 The resulting `A_vec` is saved in `state$design`.
+
+```{r module-1}
+module1_state <- CorrSurvGSD:::calculate_calendar_cutoffs(module0_state)
+```
 
 ```{r module-1-results}
 module1_results <- data.frame(
@@ -405,9 +403,13 @@ m_{\widetilde T_1\widetilde T_2}
 \end{aligned}
 \end{equation*}
 
+```{r module-2}
+module2_state <- CorrSurvGSD:::compute_per_subject_moments(module1_state)
+```
+
 ```{r module-2-results}
 module2_results <- data.frame(
-  Look = seq_len(state$design$L),
+  Look = seq_len(module2_state$design$L),
   PFS_event_mean_T = round(
     module2_state$moments$single_look_means["T", "delta", "PFS", ], 4
   ),
@@ -483,6 +485,10 @@ $\sqrt{d_{\min(\ell_1,\ell_2)}^k/d_{\max(\ell_1,\ell_2)}^k}$. Across endpoints,
 the covariance is standardized by the two marginal standard deviations. The
 result is a $(2L)\times(2L)$ matrix ordered as PFS looks first and OS looks
 second.
+
+```{r module-3}
+module3_state <- CorrSurvGSD:::construct_joint_correlation_matrix(module2_state)
+```
 
 ```{r module-3-results}
 knitr::kable(
@@ -562,6 +568,10 @@ endpoint is then restricted to crossings at the same or a later look. These
 mutually exclusive probabilities populate joint_power_matrix and sum to
 joint_power.
 
+```{r module-4}
+module4_state <- CorrSurvGSD:::calculate_closed_form_results(module3_state)
+```
+
 ```{r module-4-boundaries}
 boundary_rows <- c(
   paste0("PFS_", seq_len(module4_state$design$L)),
@@ -630,13 +640,15 @@ to the internal attempt limit.
 
 ## Optional simulation example
 
-```{r module-5-results}
+```{r module-5}
 module5_state <- module4_state
 module5_state$options$simulation <- TRUE
 module5_state$options$simulation_seed <- 777
 module5_state$options$n_sim <- 200
 module5_state <- CorrSurvGSD:::run_simulation(module5_state)
+```
 
+```{r module-5-results}
 simulation_comparison <- data.frame(
   Quantity = c("Theoretical joint power", "Empirical joint power"),
   Value = c(
