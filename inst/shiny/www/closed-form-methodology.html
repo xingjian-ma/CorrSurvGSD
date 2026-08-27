@@ -14,38 +14,26 @@
 
 <title>Closed-Form Methodology for Correlated Group Sequential Designs</title>
 
-<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
-// be compatible with the behavior of Pandoc < 2.8).
-document.addEventListener('DOMContentLoaded', function(e) {
-  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
-  var i, h, a;
-  for (i = 0; i < hs.length; i++) {
-    h = hs[i];
-    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
-    a = h.attributes;
-    while (a.length > 0) h.removeAttribute(a[0].name);
+<script src="closed-form-methodology_files/header-attrs-2.28/header-attrs.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
   }
-});
-</script>
-
-<style type="text/css">
-code{white-space: pre-wrap;}
-span.smallcaps{font-variant: small-caps;}
-span.underline{text-decoration: underline;}
-div.column{display: inline-block; vertical-align: top; width: 50%;}
-div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-ul.task-list{list-style: none;}
-</style>
-
-
-
-<style type="text/css">
-code {
-white-space: pre;
-}
-.sourceCode {
-overflow: visible;
-}
+  .sourceCode {
+    overflow: visible;
+  }
 </style>
 <style type="text/css" data-origin="pandoc">
 html { -webkit-text-size-adjust: 100%; }
@@ -64,54 +52,55 @@ pre > code.sourceCode { white-space: pre-wrap; }
 pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
-{ counter-reset: source-line 0; }
+  { counter-reset: source-line 0; }
 pre.numberSource code > span
-{ position: relative; left: -4em; counter-increment: source-line; }
+  { position: relative; left: -4em; counter-increment: source-line; }
 pre.numberSource code > span > a:first-child::before
-{ content: counter(source-line);
-position: relative; left: -1em; text-align: right; vertical-align: baseline;
-border: none; display: inline-block;
--webkit-touch-callout: none; -webkit-user-select: none;
--khtml-user-select: none; -moz-user-select: none;
--ms-user-select: none; user-select: none;
-padding: 0 4px; width: 4em;
-color: #aaaaaa;
-}
-pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
 div.sourceCode
-{ }
+  {   }
 @media screen {
 pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
-code span.al { color: #ff0000; font-weight: bold; } 
-code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.at { color: #7d9029; } 
-code span.bn { color: #40a070; } 
-code span.bu { color: #008000; } 
-code span.cf { color: #007020; font-weight: bold; } 
-code span.ch { color: #4070a0; } 
-code span.cn { color: #880000; } 
-code span.co { color: #60a0b0; font-style: italic; } 
-code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.do { color: #ba2121; font-style: italic; } 
-code span.dt { color: #902000; } 
-code span.dv { color: #40a070; } 
-code span.er { color: #ff0000; font-weight: bold; } 
-code span.ex { } 
-code span.fl { color: #40a070; } 
-code span.fu { color: #06287e; } 
-code span.im { color: #008000; font-weight: bold; } 
-code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
-code span.kw { color: #007020; font-weight: bold; } 
-code span.op { color: #666666; } 
-code span.ot { color: #007020; } 
-code span.pp { color: #bc7a00; } 
-code span.sc { color: #4070a0; } 
-code span.ss { color: #bb6688; } 
-code span.st { color: #4070a0; } 
-code span.va { color: #19177c; } 
-code span.vs { color: #4070a0; } 
-code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
 </style>
 <script>
 // apply pandoc div.sourceCode style to pre.sourceCode instead
@@ -145,187 +134,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; }
 
 
 
-<style type="text/css">body {
-background-color: #fff;
-margin: 1em auto;
-max-width: 700px;
-overflow: visible;
-padding-left: 2em;
-padding-right: 2em;
-font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-font-size: 14px;
-line-height: 1.35;
-}
-#TOC {
-clear: both;
-margin: 0 0 10px 10px;
-padding: 4px;
-width: 400px;
-border: 1px solid #CCCCCC;
-border-radius: 5px;
-background-color: #f6f6f6;
-font-size: 13px;
-line-height: 1.3;
-}
-#TOC .toctitle {
-font-weight: bold;
-font-size: 15px;
-margin-left: 5px;
-}
-#TOC ul {
-padding-left: 40px;
-margin-left: -1.5em;
-margin-top: 5px;
-margin-bottom: 5px;
-}
-#TOC ul ul {
-margin-left: -2em;
-}
-#TOC li {
-line-height: 16px;
-}
-table {
-margin: 1em auto;
-border-width: 1px;
-border-color: #DDDDDD;
-border-style: outset;
-border-collapse: collapse;
-}
-table th {
-border-width: 2px;
-padding: 5px;
-border-style: inset;
-}
-table td {
-border-width: 1px;
-border-style: inset;
-line-height: 18px;
-padding: 5px 5px;
-}
-table, table th, table td {
-border-left-style: none;
-border-right-style: none;
-}
-table thead, table tr.even {
-background-color: #f7f7f7;
-}
-p {
-margin: 0.5em 0;
-}
-blockquote {
-background-color: #f6f6f6;
-padding: 0.25em 0.75em;
-}
-hr {
-border-style: solid;
-border: none;
-border-top: 1px solid #777;
-margin: 28px 0;
-}
-dl {
-margin-left: 0;
-}
-dl dd {
-margin-bottom: 13px;
-margin-left: 13px;
-}
-dl dt {
-font-weight: bold;
-}
-ul {
-margin-top: 0;
-}
-ul li {
-list-style: circle outside;
-}
-ul ul {
-margin-bottom: 0;
-}
-pre, code {
-background-color: #f7f7f7;
-border-radius: 3px;
-color: #333;
-white-space: pre-wrap; 
-}
-pre {
-border-radius: 3px;
-margin: 5px 0px 10px 0px;
-padding: 10px;
-}
-pre:not([class]) {
-background-color: #f7f7f7;
-}
-code {
-font-family: Consolas, Monaco, 'Courier New', monospace;
-font-size: 85%;
-}
-p > code, li > code {
-padding: 2px 0px;
-}
-div.figure {
-text-align: center;
-}
-img {
-background-color: #FFFFFF;
-padding: 2px;
-border: 1px solid #DDDDDD;
-border-radius: 3px;
-border: 1px solid #CCCCCC;
-margin: 0 5px;
-}
-h1 {
-margin-top: 0;
-font-size: 35px;
-line-height: 40px;
-}
-h2 {
-border-bottom: 4px solid #f7f7f7;
-padding-top: 10px;
-padding-bottom: 2px;
-font-size: 145%;
-}
-h3 {
-border-bottom: 2px solid #f7f7f7;
-padding-top: 10px;
-font-size: 120%;
-}
-h4 {
-border-bottom: 1px solid #f7f7f7;
-margin-left: 8px;
-font-size: 105%;
-}
-h5, h6 {
-border-bottom: 1px solid #ccc;
-font-size: 105%;
-}
-a {
-color: #0033dd;
-text-decoration: none;
-}
-a:hover {
-color: #6666ff; }
-a:visited {
-color: #800080; }
-a:visited:hover {
-color: #BB00BB; }
-a[href^="http:"] {
-text-decoration: underline; }
-a[href^="https:"] {
-text-decoration: underline; }
-
-code > span.kw { color: #555; font-weight: bold; } 
-code > span.dt { color: #902000; } 
-code > span.dv { color: #40a070; } 
-code > span.bn { color: #d14; } 
-code > span.fl { color: #d14; } 
-code > span.ch { color: #d14; } 
-code > span.st { color: #d14; } 
-code > span.co { color: #888888; font-style: italic; } 
-code > span.ot { color: #007020; } 
-code > span.al { color: #ff0000; font-weight: bold; } 
-code > span.fu { color: #900; font-weight: bold; } 
-code > span.er { color: #a61717; background-color: #e3d2d2; } 
-</style>
+<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/rmarkdown/rmarkdown/templates/html_vignette/resources/vignette.css" type="text/css" />
 
 
 
@@ -521,7 +330,8 @@ between marginal and joint power. <code>Download tables (CSV)</code>
 exports the displayed analysis tables, including simulation tables when
 simulation is enabled.</p>
 </div>
-<div id="fleischer-model-and-observed-quantities" class="section level2">
+<div id="fleischer-model-and-observed-quantities"
+class="section level2">
 <h2>Fleischer model and observed quantities</h2>
 <p>For treatment or control arm <span class="math inline">\(g\)</span>,
 let the latent progression and death times be independent exponential
@@ -541,7 +351,11 @@ T_g^{OS} = E_{2g}, \qquad
 \end{equation*}\]</span>
 <p>For total sample size <span class="math inline">\(n=n_T+n_C\)</span>,
 the enrollment time <span class="math inline">\(U\)</span> has density
-<span class="math inline">\(p_i=v_i/n\)</span> on accrual segment <span class="math inline">\((t_{i-1},t_i]\)</span>. At calendar cutoff <span class="math inline">\(A\)</span>, set <span class="math inline">\(a=(A-U)_+\)</span>, <span class="math inline">\(\delta^k(A)=\mathbf{1}(T^k\le a)\)</span>, and
+<span class="math inline">\(p_i=v_i/n\)</span> on accrual segment <span
+class="math inline">\((t_{i-1},t_i]\)</span>. At calendar cutoff <span
+class="math inline">\(A\)</span>, set <span
+class="math inline">\(a=(A-U)_+\)</span>, <span
+class="math inline">\(\delta^k(A)=\mathbf{1}(T^k\le a)\)</span>, and
 <span class="math inline">\(\widetilde T^k(A)=\min(T^k,a)\)</span>.
 These definitions include administrative censoring and make subjects
 enrolled after <span class="math inline">\(A\)</span> contribute zero
@@ -568,7 +382,8 @@ quantities in <code>state$design</code>, numerical settings in
 <code>state$theoretical_results</code>.</li>
 </ul>
 </div>
-<div id="module-0-input-validation-and-derived-design-quantities" class="section level2">
+<div id="module-0-input-validation-and-derived-design-quantities"
+class="section level2">
 <h2>Module 0: input validation and derived design quantities</h2>
 <p>The Module 0 chunk constructs the validated input and initializes
 <code>state</code>. Each later module receives that same object, appends
@@ -621,8 +436,8 @@ probabilities.</li>
 <li>Treatment hazards are derived either from treatment medians or from
 <code>HR_PFS</code> and <code>HR_OS</code>. The validator rejects mixed
 or incomplete treatment effect specifications.</li>
-<li>Alpha spending supports <code>&quot;OF&quot;</code>, <code>&quot;Pocock&quot;</code>,
-and <code>&quot;HSD&quot;</code>. HSD requires a finite endpoint-specific gamma
+<li>Alpha spending supports <code>"OF"</code>, <code>"Pocock"</code>,
+and <code>"HSD"</code>. HSD requires a finite endpoint-specific gamma
 parameter.</li>
 <li>Integration and simulation seeds are stored separately so numerical
 integration and Monte Carlo results can be reproduced
@@ -804,7 +619,12 @@ m_{\delta\widetilde T} &amp;=
 \end{aligned}
 \end{equation*}\]</span>
 <p>The corresponding covariance is obtained by subtracting the product
-of the two single-look means. For PFS look 1 and OS look 2, let <span class="math inline">\(a_j=A_j-U\)</span>, <span class="math inline">\(\lambda_1=\lambda_{1,g}\)</span>, <span class="math inline">\(\lambda_2=\lambda_{2,g}\)</span>, <span class="math inline">\(\Lambda=\lambda_1+\lambda_2\)</span>, and <span class="math inline">\(A_\star=(\lambda_1A_1+\lambda_2A_2)/\Lambda\)</span>.
+of the two single-look means. For PFS look 1 and OS look 2, let <span
+class="math inline">\(a_j=A_j-U\)</span>, <span
+class="math inline">\(\lambda_1=\lambda_{1,g}\)</span>, <span
+class="math inline">\(\lambda_2=\lambda_{2,g}\)</span>, <span
+class="math inline">\(\Lambda=\lambda_1+\lambda_2\)</span>, and <span
+class="math inline">\(A_\star=(\lambda_1A_1+\lambda_2A_2)/\Lambda\)</span>.
 In the formulas below, <span class="math inline">\(I_j(A,\mu)\)</span>
 abbreviates <span class="math inline">\(I_j(A,B,b,\mu)\)</span> with
 <span class="math inline">\(B=\min(A_1,A_2,R)\)</span>.</p>
@@ -930,9 +750,13 @@ are calculated with the Delta method.</li>
 corresponding marginal variances. The combined <code>(2L) x (2L)</code>
 matrix is stored with PFS looks first and OS looks second.</li>
 </ul>
-<p>For endpoint <span class="math inline">\(k\)</span> and look <span class="math inline">\(\ell\)</span>, define <span class="math inline">\(X_{g,k,\ell}=(\delta^k_\ell,\widetilde
-T^k_\ell)^\top\)</span> and let <span class="math inline">\(\Sigma_{g,k,\ell}\)</span> be its per-subject
-covariance matrix. The log-rank log-hazard-ratio map is <span class="math inline">\(h(x_1,x_2)=\log(x_1)-\log(x_2)\)</span>, with
+<p>For endpoint <span class="math inline">\(k\)</span> and look <span
+class="math inline">\(\ell\)</span>, define <span
+class="math inline">\(X_{g,k,\ell}=(\delta^k_\ell,\widetilde
+T^k_\ell)^\top\)</span> and let <span
+class="math inline">\(\Sigma_{g,k,\ell}\)</span> be its per-subject
+covariance matrix. The log-rank log-hazard-ratio map is <span
+class="math inline">\(h(x_1,x_2)=\log(x_1)-\log(x_2)\)</span>, with
 gradient</p>
 <span class="math display">\[\begin{equation*}
 \nabla h_{g,k,\ell} =
@@ -949,7 +773,8 @@ gradient</p>
 \end{equation*}\]</span>
 <p>For PFS look <span class="math inline">\(\ell_1\)</span> and OS look
 <span class="math inline">\(\ell_2\)</span>, the cross-endpoint
-covariance uses the corresponding <span class="math inline">\(2\times2\)</span> cross-look covariance block:</p>
+covariance uses the corresponding <span
+class="math inline">\(2\times2\)</span> cross-look covariance block:</p>
 <span class="math display">\[\begin{equation*}
 \operatorname{Cov}(\widehat{\theta}^{PFS}_{\ell_1},
 \widehat{\theta}^{OS}_{\ell_2})
@@ -964,7 +789,8 @@ covariance uses the corresponding <span class="math inline">\(2\times2\)</span> 
 \sqrt{\frac{d_{\min(\ell_1,\ell_2)}^k}{d_{\max(\ell_1,\ell_2)}^k}}.
 \end{equation*}\]</span>
 <p>Across endpoints, the covariance is standardized by the two marginal
-standard deviations. The result is a <span class="math inline">\((2L)\times(2L)\)</span> matrix ordered as PFS
+standard deviations. The result is a <span
+class="math inline">\((2L)\times(2L)\)</span> matrix ordered as PFS
 looks first and OS looks second.</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>state <span class="ot">&lt;-</span> CorrSurvGSD<span class="sc">:::</span><span class="fu">construct_joint_correlation_matrix</span>(state)</span></code></pre></div>
 <div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
@@ -1015,7 +841,8 @@ looks first and OS looks second.</p>
 repeated-look dependence within each endpoint and the PFS/OS dependence
 induced by the shared Fleischer death process.</p>
 </div>
-<div id="module-4-boundaries-and-theoretical-power" class="section level2">
+<div id="module-4-boundaries-and-theoretical-power"
+class="section level2">
 <h2>Module 4: boundaries and theoretical power</h2>
 <ul>
 <li>The mean drift at look <code>l</code> for endpoint <code>k</code>
@@ -1061,15 +888,19 @@ drift at look <span class="math inline">\(\ell\)</span> is</p>
 \end{equation*}\]</span>
 <p>The selected alpha-spending family supplies finite efficacy
 boundaries at the configured efficacy looks. Futility boundaries are
-derived from the configured futility hazard ratios. With <span class="math inline">\(s_\ell=\sqrt{\frac{d_\ell r}{(1+r)^2}}\)</span>, a
+derived from the configured futility hazard ratios. With <span
+class="math inline">\(s_\ell=\sqrt{\frac{d_\ell r}{(1+r)^2}}\)</span>, a
 finite Z boundary converts as</p>
 <span class="math display">\[\begin{equation*}
 HR_\ell=\exp\left(-\frac{Z_\ell}{s_\ell}\right),
 \qquad p_\ell=1-\Phi(Z_\ell).
 \end{equation*}\]</span>
-<p>Unconfigured futility and efficacy entries remain <span class="math inline">\(-\infty\)</span> and <span class="math inline">\(+\infty\)</span> on the Z scale and are
+<p>Unconfigured futility and efficacy entries remain <span
+class="math inline">\(-\infty\)</span> and <span
+class="math inline">\(+\infty\)</span> on the Z scale and are
 represented by NA_real_ on the HR and p scales.</p>
-<p>For candidate efficacy look <span class="math inline">\(\ell\)</span>, the marginal incremental power
+<p>For candidate efficacy look <span
+class="math inline">\(\ell\)</span>, the marginal incremental power
 integrates the first-crossing region</p>
 <span class="math display">\[\begin{equation*}
 \Pr\left(
@@ -1330,7 +1161,7 @@ design, options, and theoretical results for downstream reporting.</li>
   (function () {
     var script = document.createElement("script");
     script.type = "text/javascript";
-    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_SVG";
+    script.src  = "closed-form-methodology_files/mathjax/es5/tex-svg.js";
     document.getElementsByTagName("head")[0].appendChild(script);
   })();
 </script>
