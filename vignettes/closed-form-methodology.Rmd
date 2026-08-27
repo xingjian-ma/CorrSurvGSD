@@ -2,7 +2,8 @@
 title: "Closed-Form Methodology for Correlated Group Sequential Designs"
 output:
   rmarkdown::html_vignette:
-    mathjax: "closed-form-methodology_files/mathjax/es5/tex-svg.js"
+    css: "assets/vignette.css"
+    mathjax: "assets/mathjax/es5/tex-svg.js"
     self_contained: false
 vignette: >
   %\VignetteIndexEntry{closed-form-methodology}
