@@ -1,0 +1,319 @@
+---
+title: "Closed-Form Methodology for Correlated Group Sequential Designs"
+output:
+  rmarkdown::html_vignette:
+    css: "assets/methodology.css"
+    mathjax: "assets/mathjax/es5/tex-svg.js"
+    self_contained: false
+vignette: >
+  %\VignetteIndexEntry{methodology}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Inputs and notation
+
+### Sample size and analysis looks
+
+- $n_T$: treatment-group sample size.
+- $n_C$: control-group sample size.
+
+$$
+n=n_T+n_C,\qquad r=\frac{n_T}{n_C}.
+$$
+
+- $n$: total sample size, and $r$: treatment-to-control allocation ratio.
+- $d_\ell^{PFS}$: target PFS event count at analysis look $\ell$.
+- $\ell=1,\ldots,L$: the ordered analysis looks; the target event counts are strictly increasing.
+
+### Survival and accrual inputs
+
+- $\operatorname{median}_{PFS,C}$: control-group median PFS.
+- $\operatorname{median}_{OS,C}$: control-group median OS.
+- $(HR_{PFS},HR_{OS})$: treatment-to-control hazard ratios when the hazard-ratio input mode is selected.
+- $(\operatorname{median}_{PFS,T},\operatorname{median}_{OS,T})$: treatment-group medians when the median-survival input mode is selected.
+- $v_i$: accrual rate on segment $i$.
+- $(t_{i-1},t_i]$: calendar interval for accrual segment $i$.
+- $R_i=t_i-t_{i-1}$: duration of accrual segment $i$.
+- $U$: enrollment time, with density $v_i/n$ on segment $i$ and segment probability $v_iR_i/n$.
+
+### Sequential testing inputs
+
+- $A_\ell$: calendar cutoff corresponding to look $\ell$.
+- $d_\ell^{OS}$: expected OS event count at cutoff $A_\ell$, derived from the PFS event target.
+- $a_\ell^k$: efficacy boundary for endpoint $k$ at look $\ell$.
+- $c_\ell^k$: futility boundary for endpoint $k$ at look $\ell$; futility looks are restricted to pre-final looks.
+- $\alpha$: one-sided Type I error level.
+- $S_k\in\{\mathrm{OF},\mathrm{Pocock},\mathrm{HSD}\}$: alpha-spending family selected for endpoint $k$.
+- $\gamma_k$: HSD gamma parameter for endpoint $k$ when $S_k=\mathrm{HSD}$.
+- $(\mathrm{primary},\mathrm{secondary})\in\{(PFS,OS),(OS,PFS)\}$: fixed gatekeeping order.
+
+### Computation and optional simulation
+
+- $\mathrm{integration\_seed}$: seed for theoretical multivariate-normal integration.
+- $\mathrm{simulation\_seed}$: seed for optional Monte Carlo simulation.
+- $n_{sim}$: requested number of Monte Carlo replicates when simulation is enabled.
+
+## Fleischer model and analysis timing
+
+For treatment or control arm $g$, the Fleischer model uses two independent latent event times: time to progression (TTP) and time to death (OS).
+
+$$
+T_g^{TTP}\sim\operatorname{Exp}(\lambda_{1,g}),\qquad
+T_g^{OS}\sim\operatorname{Exp}(\lambda_{2,g}),\qquad
+T_g^{TTP}\perp T_g^{OS}.
+$$
+
+- $T_g^{TTP}$ is time to progression and $T_g^{OS}$ is the OS event time, which is the time to death.
+- The two latent times are independent within an arm, while PFS and OS remain statistically related because PFS includes the same OS event time.
+
+The observed endpoint times and their hazards are
+
+$$
+T_g^{PFS}=\min(T_g^{TTP},T_g^{OS}),\qquad
+\Lambda_g=\lambda_{1,g}+\lambda_{2,g}.
+$$
+
+- $\Lambda_g$ is the PFS hazard, and $\lambda_{2,g}$ is the OS hazard.
+- For the control arm, the supplied medians imply the latent hazards through
+
+$$
+\Lambda_C=\frac{\log(2)}{\operatorname{median}_{PFS,C}},
+\qquad
+\lambda_{2,C}=\frac{\log(2)}{\operatorname{median}_{OS,C}},
+\qquad
+\lambda_{1,C}=\Lambda_C-\lambda_{2,C}.
+$$
+
+- The treatment arm can be parameterized directly by medians, or by hazard ratios using
+
+$$
+\Lambda_T=HR_{PFS}\Lambda_C,\qquad
+\lambda_{2,T}=HR_{OS}\lambda_{2,C},\qquad
+\lambda_{1,T}=\Lambda_T-\lambda_{2,T}.
+$$
+
+- The validator requires the resulting latent hazards to be positive and rejects incomplete or conflicting treatment-effect specifications.
+
+For a subject enrolled at time $u$ and observed at calendar cutoff $A$, write the available follow-up as $a=A-u$ for $u\le A$.
+
+$$
+a=A-u,\qquad
+\delta^k(A)=\mathbf{1}\{T^k\le a\},\qquad
+\widetilde T^k(A)=\min\{T^k,a\}.
+$$
+
+- $a=A-u$ is the available follow-up; subjects enrolled after $A$ are outside the integration domain and contribute no follow-up.
+- $\delta^k(A)$ records whether endpoint $k$ has been observed by the cutoff, and $\widetilde T^k(A)$ is the administratively truncated time used in the moment calculations.
+
+The PFS target determines each calendar cutoff by matching expected PFS events to the requested event count.
+
+$$
+n_T\,m_{\delta_\ell^{PFS}}^{(T)}(A_\ell)
++n_C\,m_{\delta_\ell^{PFS}}^{(C)}(A_\ell)
+=d_\ell^{PFS}.
+$$
+
+- $m_{\delta_\ell^{PFS}}^{(g)}(A_\ell)$ is the expected PFS event indicator for one subject in arm $g$ at cutoff $A_\ell$.
+- The application solves this monotone equation for $A_\ell$ in increasing order, so the result is a calendar analysis schedule rather than an assumed fixed time schedule.
+
+The same calendar cutoffs define the OS information used at each look.
+
+$$
+d_\ell^{OS}
+=n_T\,m_{\delta_\ell^{OS}}^{(T)}(A_\ell)
++n_C\,m_{\delta_\ell^{OS}}^{(C)}(A_\ell).
+$$
+
+- $d_\ell^{OS}$ is an expected event count derived from the PFS-driven cutoff, not an additional user-specified target.
+- This coupling allows PFS and OS analyses to use different efficacy or futility look selections while remaining tied to the same calendar schedule.
+
+## Closed-form moments and joint correlation
+
+For endpoint $k$, arm $g$, and look $\ell$, collect the event indicator and truncated follow-up time into the per-subject vector
+
+$$
+\mathbf{X}_{g,k,\ell}
+=\begin{pmatrix}
+\delta^k_\ell\\
+\widetilde T^k_\ell
+\end{pmatrix},
+\qquad
+\mathbf{m}_{g,k,\ell}=\mathbb{E}[\mathbf{X}_{g,k,\ell}],
+\qquad
+\boldsymbol{\Sigma}_{g,k,\ell}
+=\operatorname{Cov}(\mathbf{X}_{g,k,\ell}).
+$$
+
+- The vector $\mathbf{m}_{g,k,\ell}$ supplies the single-look means required for event counts and log-hazard-ratio variance calculations.
+- The covariance matrix $\boldsymbol{\Sigma}_{g,k,\ell}$ is obtained by evaluating the exponential expectations over the piecewise-uniform enrollment distribution.
+- For PFS look $\ell_1$ and OS look $\ell_2$, combine the two endpoint vectors into the four-dimensional vector
+
+$$
+\mathbf{X}_{g,\ell_1,\ell_2}
+=\begin{pmatrix}
+\delta^{PFS}_{\ell_1}\\
+\widetilde T^{PFS}_{\ell_1}\\
+\delta^{OS}_{\ell_2}\\
+\widetilde T^{OS}_{\ell_2}
+\end{pmatrix},
+\qquad
+\mathbf{m}_{g,\ell_1,\ell_2}
+=\mathbb{E}[\mathbf{X}_{g,\ell_1,\ell_2}],
+\qquad
+\boldsymbol{\Sigma}_{g,\ell_1,\ell_2}
+=\operatorname{Cov}(\mathbf{X}_{g,\ell_1,\ell_2}).
+$$
+
+- The covariance matrix $\boldsymbol{\Sigma}_{g,\ell_1,\ell_2}$ contains the PFS single-look block, the OS single-look block, and the PFS/OS cross-look block.
+- The cross-look block is the upper-right $2\times2$ block, denoted $\boldsymbol{\Sigma}^{PFS,OS}_{g,\ell_1,\ell_2}$; it captures dependence from the shared latent OS event time and common enrollment timing.
+- Subtracting products of corresponding means converts each analytically evaluated product expectation into the covariance entries in $\boldsymbol{\Sigma}_{g,\ell_1,\ell_2}$.
+
+For each endpoint and look, the log-hazard-ratio approximation uses the map $h(x_1,x_2)=\log(x_1)-\log(x_2)$. Its gradient at the arm-specific means is
+
+$$
+\mathbf{g}_{g,k,\ell}
+=\begin{pmatrix}
+1/m_{\delta^k_\ell}^{(g)}\\
+-1/m_{\widetilde T^k_\ell}^{(g)}
+\end{pmatrix}.
+$$
+
+- The vector $\mathbf{g}_{g,k,\ell}$ translates variation in event counts and person-time into variation in the estimated log hazard ratio.
+- The Delta method then combines the treatment and control contributions.
+
+The resulting marginal variance at endpoint $k$, look $\ell$, is
+
+$$
+\operatorname{Var}(\widehat{\theta}^k_\ell)
+=\sum_{g\in\{T,C\}}
+\frac{1}{n_g}
+\mathbf{g}_{g,k,\ell}^{\mathsf T}
+\boldsymbol{\Sigma}_{g,k,\ell}
+\mathbf{g}_{g,k,\ell}.
+$$
+
+- $\widehat{\theta}^k_\ell$ is the estimated log hazard ratio at that endpoint and look.
+- The sample-size factors scale per-subject covariance to the two-arm estimator variance.
+
+The cross-endpoint covariance between PFS look $\ell_1$ and OS look $\ell_2$ is
+
+$$
+\operatorname{Cov}(\widehat{\theta}^{PFS}_{\ell_1},
+\widehat{\theta}^{OS}_{\ell_2})
+=\sum_{g\in\{T,C\}}
+\frac{1}{n_g}
+\mathbf{g}_{g,PFS,\ell_1}^{\mathsf T}
+\boldsymbol{\Sigma}^{PFS,OS}_{g,\ell_1,\ell_2}
+\mathbf{g}_{g,OS,\ell_2}.
+$$
+
+- Standardizing this covariance by the two marginal standard deviations produces the PFS/OS correlations.
+- Within an endpoint, the canonical group-sequential correlation uses the information represented by expected events.
+
+$$
+\rho^k_{\ell_1,\ell_2}
+=\sqrt{
+\frac{d^k_{\min(\ell_1,\ell_2)}}
+{d^k_{\max(\ell_1,\ell_2)}}}.
+$$
+
+- Combining the within-endpoint correlations with the standardized cross-endpoint covariances gives the joint correlation matrix for the multivariate normal vector.
+
+$$
+\mathbf{Z}
+=\left(Z_1^{PFS},\ldots,Z_L^{PFS},Z_1^{OS},\ldots,Z_L^{OS}\right)^{\mathsf T}
+\sim\mathcal{N}_{2L}(\boldsymbol{\theta},\mathbf{R}).
+$$
+
+- $\mathbf{Z}$ is the joint Z-score vector, $\boldsymbol{\theta}$ is its mean-drift vector, and $\mathbf{R}$ is its joint correlation matrix.
+- The ordering in both $\mathbf{Z}$ and $\mathbf{R}$ is PFS looks first and OS looks second, with one entry for each endpoint-look statistic.
+
+## Sequential boundaries and theoretical power
+
+The assumed hazard ratio determines the mean Z-score drift at each endpoint and look.
+
+$$
+\theta^k_\ell
+=-\log(HR_k)
+\sqrt{\frac{d^k_\ell r}{(1+r)^2}},
+\qquad
+r=\frac{n_T}{n_C}.
+$$
+
+- A treatment benefit with $HR_k<1$ gives positive drift in the direction of the one-sided efficacy boundary.
+- PFS uses $d_\ell^{PFS}$, while OS uses the derived $d_\ell^{OS}$, so their drift vectors can differ even at the same calendar look.
+
+The selected alpha-spending family determines the efficacy boundaries at the configured looks.
+
+- OF, Pocock, and HSD are selectable endpoint-specific spending families.
+- The one-sided alpha level controls the total efficacy spending, while HSD gamma controls how spending is distributed across looks.
+- Futility boundaries are created only at selected pre-final futility looks and are obtained from the corresponding futility hazard-ratio thresholds.
+- The boundary table displayed by Shiny reports both endpoints on Z, hazard-ratio, and one-sided p-value scales.
+
+For information $d^k_\ell$, define $s^k_\ell$ as the information scale of the log-hazard-ratio statistic. A finite Z boundary converts as
+
+$$
+s^k_\ell
+=\sqrt{\frac{d^k_\ell r}{(1+r)^2}},
+\qquad
+HR^k_\ell
+=\exp\left(-\frac{Z^k_\ell}{s^k_\ell}\right),
+\qquad
+p^k_\ell=1-\Phi(Z^k_\ell).
+$$
+
+- $HR^k_\ell$ is the hazard-ratio threshold equivalent to the Z boundary, and $p^k_\ell$ is its one-sided p-value.
+- Unconfigured boundaries remain infinite on the Z scale and are unavailable on the displayed HR and p scales.
+
+For endpoint $k$, the incremental marginal power at efficacy look $\ell$ is the probability of first crossing there.
+
+$$
+\pi^k_\ell
+=\mathbb{P}\left(
+c^k_j\le Z^k_j<a^k_j\ \text{for all }j<\ell,
+\quad Z^k_\ell\ge a^k_\ell
+\right).
+$$
+
+- $a^k_j$ is the efficacy boundary and $c^k_j$ is the futility boundary, with infinite values representing an unconfigured boundary.
+- The probability is evaluated under the endpoint-specific mean drift and within-endpoint correlation matrix.
+- Summing the mutually exclusive incremental probabilities gives cumulative marginal power through look $\ell$.
+
+With a fixed testing hierarchy, let $p$ denote the primary endpoint and $s$ the secondary endpoint. The joint-power matrix has one cell for each primary look $\ell_1$ and eligible secondary look $\ell_2\ge\ell_1$.
+
+$$
+\operatorname{Power}_{joint}
+=\sum_{\ell_1=1}^{L}\sum_{\ell_2=\ell_1}^{L}
+\mathbb{P}\left(
+\left\{
+\begin{aligned}
+&c^p_h\le Z^p_h\le a^p_h &&\text{for }h=1,\ldots,\ell_1-1,\\
+&Z^p_{\ell_1}\ge a^p_{\ell_1}
+\end{aligned}
+\right\}
+\cap
+\left\{
+\begin{aligned}
+&c^s_h\le Z^s_h &&\text{for }h=1,\ldots,\ell_1-1,\\
+&c^s_h\le Z^s_h\le a^s_h &&\text{for }h=\ell_1,\ldots,\ell_2-1,\\
+&Z^s_{\ell_2}\ge a^s_{\ell_2}
+\end{aligned}
+\right\}
+\right).
+$$
+
+- The first brace is the primary endpoint's first efficacy crossing at look $\ell_1$: every earlier look remains above its futility boundary and below its efficacy boundary.
+- The second brace is the secondary endpoint's first eligible efficacy crossing at look $\ell_2$: it avoids futility at every earlier look, remains below efficacy from the gate-opening look $\ell_1$ through look $\ell_2-1$, and crosses efficacy at look $\ell_2$.
+- Before look $\ell_1$, the secondary endpoint is not required to remain below an efficacy boundary because the hierarchy has not yet opened for it.
+- The displayed joint-power matrix records each crossing pair, and its cells sum to the reported hierarchical joint power.
+- The full PFS/OS joint correlation matrix and the two drift vectors define the multivariate normal probabilities used for these cells.
+
+## Simulation and reproducibility
+
+- Simulation is optional and is used to compare empirical Monte Carlo summaries with the closed-form results under the same Fleischer assumptions.
+- When enabled, the application reports simulated counterparts for marginal and joint power while retaining the theoretical boundary and power calculations.
+- The `integration_seed` controls reproducible multivariate-normal integration for the theoretical crossing probabilities.
+- The `simulation_seed` controls reproducible empirical summaries, and `n_sim` controls the requested number of Monte Carlo replicates.
+- The computational tolerance controls the numerical solution of the calendar-cutoff equations, while display precision affects presentation only.
+- The Shiny results can be reviewed as design summary, boundary, and power views, and the displayed result tables can be exported as CSV without changing the underlying calculations.

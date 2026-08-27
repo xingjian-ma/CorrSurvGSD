@@ -1752,7 +1752,7 @@ ui <- fluidPage(
             class = "methodology-panel",
             tags$iframe(
               class = "methodology-frame",
-              src = "methodology/closed-form-methodology.html",
+              src = "methodology/methodology.html",
               title = "Closed-form methodology"
             )
           )

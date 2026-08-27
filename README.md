@@ -49,8 +49,8 @@ state$theoretical_results$joint_power
 
 ## Documentation
 
-- The [methodology vignette](vignettes/closed-form-methodology.Rmd) describes the model, closed-form calculations, boundaries, and simulation workflow.
-- The methodology vignette is available after installation with `vignette("closed-form-methodology", package = "CorrSurvGSD")`.
+- The [methodology vignette](vignettes/methodology.Rmd) describes the model, closed-form calculations, boundaries, and simulation workflow.
+- The methodology vignette is available after installation with `vignette("methodology", package = "CorrSurvGSD")`.
 
 ## Development and release
 

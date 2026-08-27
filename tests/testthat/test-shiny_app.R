@@ -165,7 +165,8 @@ test_that("Shiny introduction provides a fixed-sequence demo design", {
   methodology_file <- system.file(
     "shiny",
     "www",
-    "closed-form-methodology.html",
+    "methodology",
+    "methodology.html",
     package = "CorrSurvGSD"
   )
 
@@ -179,7 +180,7 @@ test_that("Shiny introduction provides a fixed-sequence demo design", {
   expect_true(file.exists(methodology_file))
   expect_match(ui_html, 'id="load_demo"', fixed = TRUE)
   expect_match(ui_html, "Methodology", fixed = TRUE)
-  expect_match(ui_html, "closed-form-methodology.html", fixed = TRUE)
+  expect_match(ui_html, "methodology/methodology.html", fixed = TRUE)
 })
 
 test_that("Shiny result tables expose the expected structures", {
