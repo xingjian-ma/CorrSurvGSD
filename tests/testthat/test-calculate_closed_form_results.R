@@ -96,6 +96,30 @@ test_that("first-crossing bounds respect current look and gate start", {
   expect_equal(gated$upper, c(Inf, 2, Inf))
 })
 
+test_that("seeded mvtnorm integration is reproducible and restores RNG state", {
+  set.seed(2024)
+  random_seed_before <- get(".Random.seed", envir = .GlobalEnv)
+
+  first <- pmvnorm_with_seed(
+    lower = c(-Inf, -Inf),
+    upper = c(0, 0),
+    mean = c(0, 0),
+    corr = diag(2),
+    seed = 777
+  )
+  random_seed_after <- get(".Random.seed", envir = .GlobalEnv)
+  second <- pmvnorm_with_seed(
+    lower = c(-Inf, -Inf),
+    upper = c(0, 0),
+    mean = c(0, 0),
+    corr = diag(2),
+    seed = 777
+  )
+
+  expect_identical(random_seed_after, random_seed_before)
+  expect_equal(first, second)
+})
+
 test_that("marginal power handles single look and delayed efficacy", {
   single <- calculate_marginal_power(
     mean_vector = 0,

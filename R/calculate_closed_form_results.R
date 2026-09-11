@@ -109,6 +109,53 @@ first_crossing_bounds <- function(boundary, look, gate_start = 1) {
   list(lower = lower, upper = upper)
 }
 
+# Evaluate mvtnorm probabilities with a version-independent random seed.
+# Older mvtnorm releases do not expose `seed` in pmvnorm(); passing it through
+# `...` makes those releases forward it to GenzBretz(), which rejects it.
+pmvnorm_with_seed <- function(lower, upper, mean, corr, seed = NULL) {
+  if (is.null(seed)) {
+    return(mvtnorm::pmvnorm(
+      lower = lower,
+      upper = upper,
+      mean = mean,
+      corr = corr
+    ))
+  }
+
+  had_random_seed <- exists(
+    ".Random.seed",
+    envir = .GlobalEnv,
+    inherits = FALSE
+  )
+  if (had_random_seed) {
+    previous_random_seed <- get(
+      ".Random.seed",
+      envir = .GlobalEnv,
+      inherits = FALSE
+    )
+  }
+
+  set.seed(seed)
+  on.exit({
+    if (had_random_seed) {
+      assign(
+        ".Random.seed",
+        previous_random_seed,
+        envir = .GlobalEnv
+      )
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+
+  mvtnorm::pmvnorm(
+    lower = lower,
+    upper = upper,
+    mean = mean,
+    corr = corr
+  )
+}
+
 # Calculate incremental and cumulative marginal power.
 
 calculate_marginal_power <- function(mean_vector,
@@ -137,7 +184,7 @@ calculate_marginal_power <- function(mean_vector,
         mean = mean_vector[indices]
       )
     } else {
-      power[ell, "incremental"] <- as.numeric(mvtnorm::pmvnorm(
+      power[ell, "incremental"] <- as.numeric(pmvnorm_with_seed(
         lower = bounds$lower,
         upper = bounds$upper,
         mean = mean_vector[indices],
@@ -202,7 +249,7 @@ calculate_joint_power <- function(joint_mean_vector,
       upper <- c(primary_bounds$upper, secondary_bounds$upper)
 
       joint_power_matrix[primary_look, secondary_look] <- as.numeric(
-        mvtnorm::pmvnorm(
+        pmvnorm_with_seed(
           lower = lower,
           upper = upper,
           mean = joint_mean_vector[joint_indices],
